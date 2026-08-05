@@ -14,14 +14,15 @@ type PhotoRepository struct {
 func (r *PhotoRepository) Create(p *entity.Photo) (int64, error) {
 	var id int64
 	rows, err := r.DB.NamedQuery(`INSERT INTO photo (
-		series_id, name, team, price, rotation, url
+		series_id, name, team, price, rotation, url, thumbnail
 	) VALUES (
 		:series_id,
 		:name,
 		:team,
 		:price,
 		:rotation,
-		:url
+		:url,
+		:thumbnail
 	) RETURNING (id)`, p)
 	if err != nil {
 		return 0, err
@@ -51,6 +52,11 @@ func (r *PhotoRepository) UpdateUrl(id int64, url string) error {
 
 func (r *PhotoRepository) UpdateRotation(id int64, rotation int64) error {
 	_, err := r.DB.Exec(`UPDATE photo SET rotation = $1 WHERE id = $2`, rotation, id)
+	return err
+}
+
+func (r *PhotoRepository) UpdateThumbnail(id int64, thumbnail string) error {
+	_, err := r.DB.Exec(`UPDATE photo SET thumbnail = $1 WHERE id = $2`, thumbnail, id)
 	return err
 }
 

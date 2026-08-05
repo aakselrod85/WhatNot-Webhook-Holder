@@ -30,8 +30,7 @@ func InitDigitalOcean(key, secret, endpoint, region, spacesURL string) *DigitalO
 	return &DigitalOcean{s3Client, spacesURL}
 }
 
-func (d *DigitalOcean) SaveCardPhoto(data []byte, seriesID int64, filename string) (string, error) {
-	filePath := fmt.Sprintf("cards/%d/%s", seriesID, filename)
+func (d *DigitalOcean) saveObject(data []byte, filePath string) (string, error) {
 	object := s3.PutObjectInput{
 		Bucket: aws.String("mount-olympus-storage"),
 		Key:    aws.String(filePath),
@@ -46,6 +45,14 @@ func (d *DigitalOcean) SaveCardPhoto(data []byte, seriesID int64, filename strin
 		return "", err
 	}
 	return fmt.Sprintf("%s/%s", d.spacesURL, filePath), nil
+}
+
+func (d *DigitalOcean) SaveCardPhoto(data []byte, seriesID int64, filename string) (string, error) {
+	return d.saveObject(data, fmt.Sprintf("cards/%d/%s", seriesID, filename))
+}
+
+func (d *DigitalOcean) SaveCardThumbnail(data []byte, seriesID int64, filename string) (string, error) {
+	return d.saveObject(data, fmt.Sprintf("thumbnail/%d/%s", seriesID, filename))
 }
 
 func (d *DigitalOcean) SaveLabel(buffer bytes.Buffer, name string) (string, error) {

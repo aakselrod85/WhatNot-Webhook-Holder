@@ -34,6 +34,12 @@ func (r *SeriesRepository) GetList() ([]*entity.Series, error) {
 	return series, err
 }
 
+func (r *SeriesRepository) GetListPaginated(limit int64, offset int64) ([]*entity.Series, error) {
+	series := []*entity.Series{}
+	err := r.DB.Unsafe().Select(&series, `SELECT * FROM series WHERE is_deleted = false ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`, limit, offset)
+	return series, err
+}
+
 func (r *SeriesRepository) Update(id int64, name string, usedCards int64, defaultPrice string, totalCards int64) error {
 	_, err := r.DB.Exec(
 		`UPDATE series SET name = $1, used_cards = $2, default_price = $3, total_cards = $4 WHERE id = $5`,
@@ -57,6 +63,15 @@ func (r *SeriesRepository) CountOpen() (int, error) {
 	err := r.DB.QueryRow(`SELECT COUNT(*) FROM series WHERE status = 'open' AND is_deleted = false`).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("CountOpen: %w", err)
+	}
+	return count, nil
+}
+
+func (r *SeriesRepository) CountActive() (int64, error) {
+	var count int64
+	err := r.DB.QueryRow(`SELECT COUNT(*) FROM series WHERE is_deleted = false`).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("CountActive: %w", err)
 	}
 	return count, nil
 }

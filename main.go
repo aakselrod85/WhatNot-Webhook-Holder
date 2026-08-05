@@ -197,6 +197,7 @@ func main() {
 	http.HandleFunc("/api/series/close", routeBuilder.WrapRoute(apiO.SeriesClose, api.HttpPost, true))
 	http.HandleFunc("/api/series/delete", routeBuilder.WrapRoute(apiO.SeriesDelete, api.HttpPost, true))
 	http.HandleFunc("/api/series/get_with_count", routeBuilder.WrapRoute(apiO.SeriesGetWithCount, api.HttpPost, true))
+	http.HandleFunc("/api/series/list_paginated", routeBuilder.WrapRoute(apiO.SeriesGetListPaginated, api.HttpPost, true))
 
 	http.HandleFunc("/api/photo/upload", routeBuilder.WrapRoute(apiO.PhotoUpload, api.HttpPost, true))
 	http.HandleFunc("/api/photo/list", routeBuilder.WrapRoute(apiO.PhotoGetBySeries, api.HttpPost, true))
@@ -206,6 +207,7 @@ func main() {
 	http.HandleFunc("/api/photo/restore", routeBuilder.WrapRoute(apiO.PhotoRestore, api.HttpPost, true))
 	http.HandleFunc("/api/photo/board", routeBuilder.WrapRoute(apiO.PhotoGetForBoard, api.HttpPost, true))
 	http.HandleFunc("/api/photo/rotate", routeBuilder.WrapRoute(apiO.PhotoRotate, api.HttpPost, true))
+	http.HandleFunc("/api/photo/thumbnail", routeBuilder.WrapRoute(apiO.PhotoThumbnail, api.HttpPost, true))
 
 	http.HandleFunc("/api/break/set_series", routeBuilder.WrapRoute(apiO.BreakSetSeries, api.HttpPost, true))
 

@@ -8,6 +8,7 @@ type Photo struct {
 	Name      string    `json:"name"       db:"name"`
 	Team      string    `json:"team"       db:"team"`
 	Url       string    `json:"url"        db:"url"`
+	Thumbnail string    `json:"thumbnail"  db:"thumbnail"`
 	IsSold    bool      `json:"is_sold"    db:"is_sold"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	IsDeleted bool      `json:"is_deleted" db:"is_deleted"`

@@ -22,6 +22,21 @@ func (r *StreamRepository) GetAllByChannelId(channelId int64) ([]*entity.Stream,
 	return days, err
 }
 
+func (r *StreamRepository) GetByChannelIdPaginated(channelId int64, limit int64, offset int64) ([]*entity.Stream, error) {
+	days := []*entity.Stream{}
+	err := r.DB.Unsafe().Select(&days, `SELECT * FROM stream WHERE is_deleted = false AND channel_id = $1 ORDER BY created_at DESC, id DESC LIMIT $2 OFFSET $3`, channelId, limit, offset)
+	return days, err
+}
+
+func (r *StreamRepository) CountByChannelId(channelId int64) (int64, error) {
+	var count int64
+	err := r.DB.Get(&count, `SELECT COUNT(*) FROM stream WHERE is_deleted = false AND channel_id = $1`, channelId)
+	if err != nil {
+		return 0, fmt.Errorf("CountByChannelId: %w", err)
+	}
+	return count, nil
+}
+
 func (r *StreamRepository) Get(id int64) (*entity.Stream, error) {
 	var day entity.Stream
 	err := r.DB.Unsafe().Get(&day, `SELECT * FROM stream where id = $1 AND is_deleted = false`, id)
