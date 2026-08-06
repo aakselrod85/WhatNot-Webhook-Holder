@@ -35,6 +35,8 @@ type Service struct {
 	SeriesPricesCache       cacheInterface.Cache[[]*entity.SeriesTeamTotal]
 	SeriesWithCountCache    cacheInterface.Cache[*entity.SeriesWithCount]
 	CardsBoardSettingsCache cacheInterface.Cache[*entity.WidgetCardsBoardSettings]
+	WidgetSeriesStashorpassCache cacheInterface.Cache[*entity.WidgetSeriesStashorpass]
+	WidgetSeriesPick2Cache  cacheInterface.Cache[*entity.WidgetSeriesPick2]
 	TelegramBot          *tgbotapi.BotAPI
 	StreamShipmenter
 	DigitalOceaner

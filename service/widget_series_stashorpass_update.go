@@ -1,6 +1,9 @@
 package service
 
-import "github.com/SaloEater/WhatNot-Webhook-Holder/entity"
+import (
+	"github.com/SaloEater/WhatNot-Webhook-Holder/cache"
+	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
+)
 
 type UpdateWidgetSeriesStashorpassRequest struct {
 	ChannelId int64 `json:"channel_id"`
@@ -19,6 +22,7 @@ func (s *Service) UpdateWidgetSeriesStashorpass(r *UpdateWidgetSeriesStashorpass
 	})
 	if err == nil {
 		response.Success = true
+		s.WidgetSeriesStashorpassCache.Delete(cache.IdToKey(r.ChannelId))
 	}
 	return response, err
 }

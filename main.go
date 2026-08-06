@@ -85,6 +85,8 @@ func main() {
 	seriesPricesCache := go_cache.CreateCache[[]*entity.SeriesTeamTotal](10 * time.Hour)
 	seriesWithCountCache := go_cache.CreateCache[*entity.SeriesWithCount](10 * time.Hour)
 	cardsBoardSettingsCache := go_cache.CreateCache[*entity.WidgetCardsBoardSettings](10 * time.Hour)
+	widgetSeriesStashorpassCache := go_cache.CreateCache[*entity.WidgetSeriesStashorpass](10 * time.Hour)
+	widgetSeriesPick2Cache := go_cache.CreateCache[*entity.WidgetSeriesPick2](10 * time.Hour)
 
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("mob_telegram_token"))
 	if err != nil {
@@ -119,6 +121,8 @@ func main() {
 		SeriesPricesCache:                      &seriesPricesCache,
 		SeriesWithCountCache:                   &seriesWithCountCache,
 		CardsBoardSettingsCache:                &cardsBoardSettingsCache,
+		WidgetSeriesStashorpassCache:           &widgetSeriesStashorpassCache,
+		WidgetSeriesPick2Cache:                 &widgetSeriesPick2Cache,
 		TelegramBot:                            bot,
 		StreamShipmenter:                       clickup.Init(os.Getenv("clickup_api_key"), db),
 		DigitalOceaner:                         digital_ocean.InitDigitalOcean(os.Getenv("spaces_key"), os.Getenv("spaces_secret"), os.Getenv("spaces_endpoint"), os.Getenv("spaces_region"), os.Getenv("spaces_url")),
