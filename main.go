@@ -225,7 +225,7 @@ func main() {
 	http.HandleFunc("/api/widget/series/boxes_per_break/update", routeBuilder.WrapRoute(apiO.UpdateWidgetSeriesBoxesPerBreak, api.HttpPost, true))
 	http.HandleFunc("/api/widget/channel/count_settings", routeBuilder.WrapRoute(apiO.GetWidgetChannelCountSettings, api.HttpPost, true))
 	http.HandleFunc("/api/widget/channel/count_settings/update", routeBuilder.WrapRoute(apiO.UpdateWidgetChannelCountSettings, api.HttpPost, true))
-	http.HandleFunc("/api/widget/board/price_ranges",        routeBuilder.WrapRoute(apiO.ListWidgetBoardPriceRanges,  api.HttpPost, true))
+	http.HandleFunc("/api/widget/board/price_ranges", routeBuilder.WrapRoute(apiO.ListWidgetBoardPriceRanges, api.HttpPost, true))
 	http.HandleFunc("/api/widget/board/price_ranges/create", routeBuilder.WrapRoute(apiO.CreateWidgetBoardPriceRange, api.HttpPost, true))
 	http.HandleFunc("/api/widget/board/price_ranges/update", routeBuilder.WrapRoute(apiO.UpdateWidgetBoardPriceRange, api.HttpPost, true))
 	http.HandleFunc("/api/widget/board/price_ranges/delete", routeBuilder.WrapRoute(apiO.DeleteWidgetBoardPriceRange, api.HttpPost, true))
