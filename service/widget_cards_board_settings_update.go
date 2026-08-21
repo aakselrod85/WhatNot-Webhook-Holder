@@ -6,8 +6,10 @@ import (
 )
 
 type UpdateWidgetCardsBoardSettingsRequest struct {
-	ChannelId   int64  `json:"channel_id"`
-	Orientation string `json:"orientation"`
+	ChannelId              int64  `json:"channel_id"`
+	Orientation            string `json:"orientation"`
+	ShowHorizontalRow      bool   `json:"show_horizontal_row"`
+	ShowOnlyAvailableTeams bool   `json:"show_only_available_teams"`
 }
 
 type UpdateWidgetCardsBoardSettingsResponse struct {
@@ -17,8 +19,10 @@ type UpdateWidgetCardsBoardSettingsResponse struct {
 func (s *Service) UpdateWidgetCardsBoardSettings(r *UpdateWidgetCardsBoardSettingsRequest) (*UpdateWidgetCardsBoardSettingsResponse, error) {
 	response := &UpdateWidgetCardsBoardSettingsResponse{}
 	err := s.WidgetCardsBoardSettingsRepositorier.Upsert(&entity.WidgetCardsBoardSettings{
-		ChannelId:   r.ChannelId,
-		Orientation: r.Orientation,
+		ChannelId:              r.ChannelId,
+		Orientation:            r.Orientation,
+		ShowHorizontalRow:      r.ShowHorizontalRow,
+		ShowOnlyAvailableTeams: r.ShowOnlyAvailableTeams,
 	})
 	if err == nil {
 		response.Success = true

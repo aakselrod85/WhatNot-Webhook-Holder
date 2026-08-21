@@ -1,0 +1,1 @@
+ALTER TABLE widget_cards_board_settings DROP COLUMN show_only_available_teams;

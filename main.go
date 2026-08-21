@@ -212,6 +212,7 @@ func main() {
 	http.HandleFunc("/api/photo/board", routeBuilder.WrapRoute(apiO.PhotoGetForBoard, api.HttpPost, true))
 	http.HandleFunc("/api/photo/rotate", routeBuilder.WrapRoute(apiO.PhotoRotate, api.HttpPost, true))
 	http.HandleFunc("/api/photo/thumbnail", routeBuilder.WrapRoute(apiO.PhotoThumbnail, api.HttpPost, true))
+	http.HandleFunc("/api/photo/update-image", routeBuilder.WrapRoute(apiO.PhotoUpdateImage, api.HttpPost, true))
 
 	http.HandleFunc("/api/break/set_series", routeBuilder.WrapRoute(apiO.BreakSetSeries, api.HttpPost, true))
 

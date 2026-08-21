@@ -22,8 +22,11 @@ func (r *WidgetCardsBoardSettingsRepository) GetByChannel(channelId int64) (*ent
 
 func (r *WidgetCardsBoardSettingsRepository) Upsert(w *entity.WidgetCardsBoardSettings) error {
 	_, err := r.DB.NamedExec(`
-		INSERT INTO widget_cards_board_settings (channel_id, orientation)
-		VALUES (:channel_id, :orientation)
-		ON CONFLICT (channel_id) DO UPDATE SET orientation = :orientation`, w)
+		INSERT INTO widget_cards_board_settings (channel_id, orientation, show_horizontal_row, show_only_available_teams)
+		VALUES (:channel_id, :orientation, :show_horizontal_row, :show_only_available_teams)
+		ON CONFLICT (channel_id) DO UPDATE SET
+			orientation = :orientation,
+			show_horizontal_row = :show_horizontal_row,
+			show_only_available_teams = :show_only_available_teams`, w)
 	return err
 }

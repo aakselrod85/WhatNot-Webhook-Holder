@@ -1,0 +1,1 @@
+ALTER TABLE widget_cards_board_settings DROP COLUMN show_horizontal_row;
