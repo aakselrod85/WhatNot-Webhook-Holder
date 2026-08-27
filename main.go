@@ -115,6 +115,8 @@ func main() {
 		WidgetBoardPriceRangeRepositorier:      &repository_sqlx.WidgetBoardPriceRangeRepository{DB: db},
 		WidgetCardsBoardSettingsRepositorier:   &repository_sqlx.WidgetCardsBoardSettingsRepository{DB: db},
 		WidgetPresetRepositorier:               &repository_sqlx.WidgetPresetRepository{DB: db},
+		LayoutConfigRepositorier:               &repository_sqlx.LayoutConfigRepository{DB: db},
+		OverlayStateRepositorier:               &repository_sqlx.OverlayStateRepository{DB: db},
 		BreakCache:                             &breakCache,
 		StreamCache:                            &streamCache,
 		ChannelCache:                           &channelCache,
@@ -235,6 +237,11 @@ func main() {
 	http.HandleFunc("/api/widget/presets/delete", routeBuilder.WrapRoute(apiO.DeleteWidgetPreset, api.HttpPost, true))
 	http.HandleFunc("/api/widget/cards_board", routeBuilder.WrapRoute(apiO.GetWidgetCardsBoardSettings, api.HttpPost, true))
 	http.HandleFunc("/api/widget/cards_board/update", routeBuilder.WrapRoute(apiO.UpdateWidgetCardsBoardSettings, api.HttpPost, true))
+
+	http.HandleFunc("/api/layout/config", routeBuilder.WrapRoute(apiO.GetLayoutConfig, api.HttpPost, true))
+	http.HandleFunc("/api/layout/config/update", routeBuilder.WrapRoute(apiO.UpdateLayoutConfig, api.HttpPost, true))
+	http.HandleFunc("/api/layout/state", routeBuilder.WrapRoute(apiO.GetOverlayState, api.HttpPost, true))
+	http.HandleFunc("/api/layout/state/update", routeBuilder.WrapRoute(apiO.UpdateOverlayState, api.HttpPost, true))
 
 	port := os.Getenv("port")
 	portInt, err := strconv.Atoi(port)

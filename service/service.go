@@ -29,6 +29,8 @@ type Service struct {
 	repository.WidgetBoardPriceRangeRepositorier
 	repository.WidgetCardsBoardSettingsRepositorier
 	repository.WidgetPresetRepositorier
+	repository.LayoutConfigRepositorier
+	repository.OverlayStateRepositorier
 	BreakCache                   cacheInterface.Cache[*entity.Break]
 	StreamCache                  cacheInterface.Cache[*entity.Stream]
 	ChannelCache                 cacheInterface.Cache[*entity.Channel]
