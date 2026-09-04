@@ -242,6 +242,7 @@ func main() {
 	http.HandleFunc("/api/layout/config/update", routeBuilder.WrapRoute(apiO.UpdateLayoutConfig, api.HttpPost, true))
 	http.HandleFunc("/api/layout/state", routeBuilder.WrapRoute(apiO.GetOverlayState, api.HttpPost, true))
 	http.HandleFunc("/api/layout/state/update", routeBuilder.WrapRoute(apiO.UpdateOverlayState, api.HttpPost, true))
+	http.HandleFunc("/api/layout/image/upload", routeBuilder.WrapRoute(apiO.LayoutImageUpload, api.HttpPost, true))
 
 	port := os.Getenv("port")
 	portInt, err := strconv.Atoi(port)

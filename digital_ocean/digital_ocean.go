@@ -55,6 +55,10 @@ func (d *DigitalOcean) SaveCardThumbnail(data []byte, seriesID int64, filename s
 	return d.saveObject(data, fmt.Sprintf("thumbnail/%d/%s", seriesID, filename))
 }
 
+func (d *DigitalOcean) SaveLayoutImage(data []byte, channelID int64, filename string) (string, error) {
+	return d.saveObject(data, fmt.Sprintf("layout/%d/%s", channelID, filename))
+}
+
 func (d *DigitalOcean) SaveLabel(buffer bytes.Buffer, name string) (string, error) {
 	reader := bytes.NewReader(buffer.Bytes())
 	filePath := fmt.Sprintf("labels/%s", name)
