@@ -56,5 +56,17 @@ func (a *API) LayoutImageUpload(w http.ResponseWriter, r *http.Request) (any, er
 		return nil, err
 	}
 
-	return a.Service.LayoutImageUpload(channelID, data, header.Filename)
+	name := r.FormValue("name")
+
+	width, err := strconv.Atoi(r.FormValue("width"))
+	if err != nil || width < 0 {
+		width = 0
+	}
+
+	height, err := strconv.Atoi(r.FormValue("height"))
+	if err != nil || height < 0 {
+		height = 0
+	}
+
+	return a.Service.LayoutImageUpload(channelID, data, header.Filename, name, width, height)
 }

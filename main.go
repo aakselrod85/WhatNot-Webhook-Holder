@@ -116,6 +116,8 @@ func main() {
 		WidgetCardsBoardSettingsRepositorier:   &repository_sqlx.WidgetCardsBoardSettingsRepository{DB: db},
 		WidgetPresetRepositorier:               &repository_sqlx.WidgetPresetRepository{DB: db},
 		LayoutConfigRepositorier:               &repository_sqlx.LayoutConfigRepository{DB: db},
+		LayoutPresetRepositorier:               &repository_sqlx.LayoutPresetRepository{DB: db},
+		LayoutImageRepositorier:                &repository_sqlx.LayoutImageRepository{DB: db},
 		OverlayStateRepositorier:               &repository_sqlx.OverlayStateRepository{DB: db},
 		BreakCache:                             &breakCache,
 		StreamCache:                            &streamCache,
@@ -240,9 +242,15 @@ func main() {
 
 	http.HandleFunc("/api/layout/config", routeBuilder.WrapRoute(apiO.GetLayoutConfig, api.HttpPost, true))
 	http.HandleFunc("/api/layout/config/update", routeBuilder.WrapRoute(apiO.UpdateLayoutConfig, api.HttpPost, true))
+	http.HandleFunc("/api/layout/preset/list", routeBuilder.WrapRoute(apiO.ListLayoutPresets, api.HttpPost, true))
+	http.HandleFunc("/api/layout/preset/create", routeBuilder.WrapRoute(apiO.CreateLayoutPreset, api.HttpPost, true))
+	http.HandleFunc("/api/layout/preset/update", routeBuilder.WrapRoute(apiO.UpdateLayoutPreset, api.HttpPost, true))
+	http.HandleFunc("/api/layout/preset/delete", routeBuilder.WrapRoute(apiO.DeleteLayoutPreset, api.HttpPost, true))
 	http.HandleFunc("/api/layout/state", routeBuilder.WrapRoute(apiO.GetOverlayState, api.HttpPost, true))
 	http.HandleFunc("/api/layout/state/update", routeBuilder.WrapRoute(apiO.UpdateOverlayState, api.HttpPost, true))
 	http.HandleFunc("/api/layout/image/upload", routeBuilder.WrapRoute(apiO.LayoutImageUpload, api.HttpPost, true))
+	http.HandleFunc("/api/layout/image/list", routeBuilder.WrapRoute(apiO.LayoutImageList, api.HttpPost, true))
+	http.HandleFunc("/api/layout/image/delete", routeBuilder.WrapRoute(apiO.LayoutImageDelete, api.HttpPost, true))
 
 	port := os.Getenv("port")
 	portInt, err := strconv.Atoi(port)

@@ -2,29 +2,48 @@ package service
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
-)
 
-type LayoutImageUploadResponse struct {
-	Url string `json:"url"`
-}
+	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
+)
 
 var layoutImageFilenameSanitizeRegexp = regexp.MustCompile(`[^A-Za-z0-9._-]`)
 
-func (s *Service) LayoutImageUpload(channelID int64, data []byte, filename string) (*LayoutImageUploadResponse, error) {
-	name := layoutImageFilenameSanitizeRegexp.ReplaceAllString(filename, "_")
-	if len(name) > 80 {
-		name = name[:80]
+func (s *Service) LayoutImageUpload(channelID int64, data []byte, filename, name string, width, height int) (*entity.LayoutImage, error) {
+	objectName := layoutImageFilenameSanitizeRegexp.ReplaceAllString(filename, "_")
+	if len(objectName) > 80 {
+		objectName = objectName[:80]
 	}
-	if name == "" {
-		name = "image"
+	if objectName == "" {
+		objectName = "image"
 	}
-	name = fmt.Sprintf("%d-%s", time.Now().UnixMilli(), name)
+	objectName = fmt.Sprintf("%d-%s", time.Now().UnixMilli(), objectName)
 
-	url, err := s.DigitalOceaner.SaveLayoutImage(data, channelID, name)
+	displayName := strings.TrimSpace(name)
+	if displayName == "" {
+		ext := filepath.Ext(filename)
+		displayName = strings.TrimSuffix(filename, ext)
+	}
+	displayNameRunes := []rune(displayName)
+	if len(displayNameRunes) > 200 {
+		displayNameRunes = displayNameRunes[:200]
+	}
+	displayName = string(displayNameRunes)
+
+	url, err := s.DigitalOceaner.SaveLayoutImage(data, channelID, objectName)
 	if err != nil {
 		return nil, err
 	}
-	return &LayoutImageUploadResponse{Url: url}, nil
+
+	return s.LayoutImageRepositorier.Insert(&entity.LayoutImage{
+		ChannelId: channelID,
+		Name:      displayName,
+		Url:       url,
+		Width:     width,
+		Height:    height,
+		SizeBytes: int64(len(data)),
+	})
 }

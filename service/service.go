@@ -30,6 +30,8 @@ type Service struct {
 	repository.WidgetCardsBoardSettingsRepositorier
 	repository.WidgetPresetRepositorier
 	repository.LayoutConfigRepositorier
+	repository.LayoutPresetRepositorier
+	repository.LayoutImageRepositorier
 	repository.OverlayStateRepositorier
 	BreakCache                   cacheInterface.Cache[*entity.Break]
 	StreamCache                  cacheInterface.Cache[*entity.Stream]
