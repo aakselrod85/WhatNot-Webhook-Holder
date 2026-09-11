@@ -113,6 +113,7 @@ func main() {
 		WidgetSeriesBoxesPerBreakRepositorier:  &repository_sqlx.WidgetSeriesBoxesPerBreakRepository{DB: db},
 		WidgetChannelCountSettingsRepositorier: &repository_sqlx.WidgetChannelCountSettingsRepository{DB: db},
 		WidgetBoardPriceRangeRepositorier:      &repository_sqlx.WidgetBoardPriceRangeRepository{DB: db},
+		SeriesPriceRangeRepositorier:           &repository_sqlx.SeriesPriceRangeRepository{DB: db},
 		WidgetCardsBoardSettingsRepositorier:   &repository_sqlx.WidgetCardsBoardSettingsRepository{DB: db},
 		WidgetPresetRepositorier:               &repository_sqlx.WidgetPresetRepository{DB: db},
 		LayoutConfigRepositorier:               &repository_sqlx.LayoutConfigRepository{DB: db},
@@ -206,6 +207,10 @@ func main() {
 	http.HandleFunc("/api/series/delete", routeBuilder.WrapRoute(apiO.SeriesDelete, api.HttpPost, true))
 	http.HandleFunc("/api/series/get_with_count", routeBuilder.WrapRoute(apiO.SeriesGetWithCount, api.HttpPost, true))
 	http.HandleFunc("/api/series/list_paginated", routeBuilder.WrapRoute(apiO.SeriesGetListPaginated, api.HttpPost, true))
+	http.HandleFunc("/api/series/price_ranges", routeBuilder.WrapRoute(apiO.SeriesPriceRangeList, api.HttpPost, true))
+	http.HandleFunc("/api/series/price_ranges/create", routeBuilder.WrapRoute(apiO.SeriesPriceRangeCreate, api.HttpPost, true))
+	http.HandleFunc("/api/series/price_ranges/update", routeBuilder.WrapRoute(apiO.SeriesPriceRangeUpdate, api.HttpPost, true))
+	http.HandleFunc("/api/series/price_ranges/delete", routeBuilder.WrapRoute(apiO.SeriesPriceRangeDelete, api.HttpPost, true))
 
 	http.HandleFunc("/api/photo/upload", routeBuilder.WrapRoute(apiO.PhotoUpload, api.HttpPost, true))
 	http.HandleFunc("/api/photo/list", routeBuilder.WrapRoute(apiO.PhotoGetBySeries, api.HttpPost, true))

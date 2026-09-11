@@ -10,11 +10,11 @@ type SeriesRepository struct {
 	DB *sqlx.DB
 }
 
-func (r *SeriesRepository) Create(name string, totalCards int64, defaultPrice string) (int64, error) {
+func (r *SeriesRepository) Create(name string, totalCards int64, defaultPrice string, kind string) (int64, error) {
 	var id int64
 	err := r.DB.QueryRow(
-		`INSERT INTO series (name, total_cards, default_price) VALUES ($1, $2, $3) RETURNING id`,
-		name, totalCards, defaultPrice,
+		`INSERT INTO series (name, total_cards, default_price, kind) VALUES ($1, $2, $3, $4) RETURNING id`,
+		name, totalCards, defaultPrice, kind,
 	).Scan(&id)
 	if err != nil {
 		return 0, err

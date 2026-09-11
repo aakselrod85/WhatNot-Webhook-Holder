@@ -21,6 +21,7 @@ type Service struct {
 	repository.TrackingRepositorier
 	repository.BundleLabelRepositorier
 	repository.SeriesRepositorier
+	repository.SeriesPriceRangeRepositorier
 	repository.PhotoRepositorier
 	repository.WidgetSeriesStashorpassRepositorier
 	repository.WidgetSeriesPick2Repositorier

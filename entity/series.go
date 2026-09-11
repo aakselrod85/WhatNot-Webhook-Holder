@@ -11,4 +11,5 @@ type Series struct {
 	TotalCards   int64     `json:"total_cards"  db:"total_cards"`
 	UsedCards    int64     `json:"used_cards"    db:"used_cards"`
 	DefaultPrice string    `json:"default_price" db:"default_price"`
+	Kind         string    `json:"kind"          db:"kind"`
 }
