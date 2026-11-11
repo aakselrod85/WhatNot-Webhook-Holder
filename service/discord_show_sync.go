@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -31,14 +30,16 @@ func (s *Service) SyncDiscordShow(whatnotShowId int64) {
 }
 
 // syncDiscordShow is SyncDiscordShow; with alert it also sends the failure ping after the message sync, under the same lock.
-func (s *Service) syncDiscordShow(whatnotShowId int64, alert bool) {
+// The returned error (already logged) is the message sync's.
+func (s *Service) syncDiscordShow(whatnotShowId int64, alert bool) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			discordLogf("sync show %d: panic: %v", whatnotShowId, r)
+			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
 	if !s.discordEnabled() {
-		return
+		return nil
 	}
 	lock, _ := discordShowLocks.LoadOrStore(whatnotShowId, &sync.Mutex{})
 	mu := lock.(*sync.Mutex)
@@ -55,6 +56,7 @@ func (s *Service) syncDiscordShow(whatnotShowId int64, alert bool) {
 			discordLogf("alert show %d: %s", whatnotShowId, err.Error())
 		}
 	}
+	return err
 }
 
 // discordMessageRef is where the show's message lives after a sync; the alert replies to it.
@@ -171,30 +173,6 @@ func (s *Service) syncDiscordShowLocked(whatnotShowId int64) (*discordMessageRef
 	return ref, nil
 }
 
-// ClearDiscordCommands registers an empty command list in every server the bot is in, which removes any
-// previously registered slash command. Silent no-op without the bot token or application id; failures are only
-// logged. Meant to run in a goroutine at startup.
-func (s *Service) ClearDiscordCommands(applicationId string) {
-	defer func() {
-		if r := recover(); r != nil {
-			discordLogf("clear commands: panic: %v", r)
-		}
-	}()
-	if !s.discordEnabled() || applicationId == "" {
-		return
-	}
-	guilds, err := s.Discord.ListGuildIds()
-	if err != nil {
-		discordLogf("clear commands: %s", err.Error())
-		return
-	}
-	for _, g := range guilds {
-		if err := s.Discord.SetGuildCommands(applicationId, g, []map[string]any{}); err != nil {
-			discordLogf("clear commands in guild %s: %s", g, err.Error())
-		}
-	}
-}
-
 // pinDiscordShowIfLive pins the message once while the show is displayed as live, then removes the system notice.
 // A pinned message is unpinned once the show is no longer live. Failures are only logged.
 func (s *Service) pinDiscordShowIfLive(showId int64, channelId, messageId string, in discordShowInput, pinned bool) {
@@ -225,6 +203,7 @@ func (s *Service) pinDiscordShowIfLive(showId int64, channelId, messageId string
 }
 
 func (s *Service) loadDiscordShowInput(show *entity.WhatnotShow, view string) (discordShowInput, error) {
+	view, selectedBreakId := parseDiscordView(view)
 	in := discordShowInput{Show: show, View: view}
 	switch view {
 	case entity.DiscordViewStats, entity.DiscordViewReconciliation:
@@ -263,7 +242,11 @@ func (s *Service) loadDiscordShowInput(show *entity.WhatnotShow, view string) (d
 
 	switch in.View {
 	case entity.DiscordViewStats:
-		in.Stats = s.mergedStreamStats(streams)
+		report, err := s.buildShowStats(show, streams, selectedBreakId)
+		if err != nil {
+			return in, err
+		}
+		in.StatsReport = report
 	case entity.DiscordViewReconciliation:
 		for _, st := range streams {
 			row, err := s.GetReconciliationByStream(st.Id, show.ShowId)
@@ -346,40 +329,4 @@ func (s *Service) syncDiscordShowsOfStreamAsync(streamId int64, alert bool) {
 			s.syncDiscordShow(show.Id, alert)
 		}
 	}()
-}
-
-// HandleDiscordViewButton applies a "show:view:<view>:<whatnot_show.id>" click. Unknown ids, unknown views and
-// cancelled shows change nothing. Returns quickly; the message edit runs async.
-func (s *Service) HandleDiscordViewButton(customId string) {
-	defer func() {
-		if r := recover(); r != nil {
-			discordLogf("view button %q: panic: %v", customId, r)
-		}
-	}()
-	parts := strings.Split(customId, ":")
-	if len(parts) != 4 || parts[0] != "show" || parts[1] != "view" {
-		return
-	}
-	switch parts[2] {
-	case entity.DiscordViewOverview, entity.DiscordViewStats, entity.DiscordViewReconciliation:
-	default:
-		return
-	}
-	id, err := strconv.ParseInt(parts[3], 10, 64)
-	if err != nil {
-		return
-	}
-	show, err := s.WhatnotShowRepositorier.Get(id)
-	if err != nil {
-		discordLogf("view button %q: %s", customId, err.Error())
-		return
-	}
-	if show == nil || show.Status == entity.WhatnotShowStatusCancelled {
-		return
-	}
-	if err := s.DiscordShowMessageRepositorier.SetView(id, parts[2]); err != nil {
-		discordLogf("view button %q: %s", customId, err.Error())
-		return
-	}
-	s.syncDiscordShowAsync(id)
 }

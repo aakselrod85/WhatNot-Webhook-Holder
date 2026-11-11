@@ -7,6 +7,8 @@ import (
 
 type EventRepositorier interface {
 	GetAllByBreak(int64) ([]*entity.Event, error)
+	// GetAllByStream returns the non-deleted events of the stream's non-deleted breaks in one query.
+	GetAllByStream(streamId int64) ([]*entity.Event, error)
 	Get(int64) (*entity.Event, error)
 	Delete(int64) error
 	Update(*entity.Event) error

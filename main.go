@@ -161,7 +161,7 @@ func main() {
 		//svc.RunTelegramBotUpdates(bot)
 	}()
 
-	go svc.ClearDiscordCommands(os.Getenv("discord_bot_id"))
+	go svc.RegisterDiscordCommands(os.Getenv("discord_bot_id"))
 
 	apiO := api.API{Service: svc}
 
