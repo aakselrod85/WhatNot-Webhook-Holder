@@ -178,6 +178,31 @@ func (c *Client) SetGuildCommands(applicationId, guildId string, commands any) e
 	return nil
 }
 
+// EditInteractionResponse replaces the deferred reply of an interaction. The token authorizes it, no bot header.
+func (c *Client) EditInteractionResponse(applicationId, token string, payload Message) error {
+	status, body, err := c.doReq(http.MethodPatch, "/webhooks/"+applicationId+"/"+token+"/messages/@original", payload, false)
+	if err != nil {
+		return err
+	}
+	if status < 200 || status > 299 {
+		return fmt.Errorf("discord edit interaction response: status %d: %s", status, string(body))
+	}
+	return nil
+}
+
+// EditInteractionComponents replaces only the components of the interaction's message (embeds stay as they are).
+func (c *Client) EditInteractionComponents(applicationId, token string, components any) error {
+	payload := map[string]any{"components": components}
+	status, body, err := c.doReq(http.MethodPatch, "/webhooks/"+applicationId+"/"+token+"/messages/@original", payload, false)
+	if err != nil {
+		return err
+	}
+	if status < 200 || status > 299 {
+		return fmt.Errorf("discord edit interaction components: status %d: %s", status, string(body))
+	}
+	return nil
+}
+
 func (c *Client) do(method, path string, payload any) (int, []byte, error) {
 	return c.doReq(method, path, payload, true)
 }

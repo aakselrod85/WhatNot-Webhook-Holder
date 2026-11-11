@@ -1,6 +1,10 @@
 package repository
 
-import "github.com/SaloEater/WhatNot-Webhook-Holder/entity"
+import (
+	"time"
+
+	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
+)
 
 type StreamRepositorier interface {
 	GetAll() ([]*entity.Stream, error)
@@ -14,4 +18,7 @@ type StreamRepositorier interface {
 	GetEnriched(int64) (*entity.StreamEnriched, error)
 	GetByChannelIdPaginated(channelId int64, limit int64, offset int64) ([]*entity.Stream, error)
 	CountByChannelId(channelId int64) (int64, error)
+	// GetPriorBuyers returns the lower-cased usernames that bought (non-giveaway) in the channel's streams created
+	// before `before`, excluding stream `excludeStreamId`.
+	GetPriorBuyers(channelId int64, excludeStreamId int64, before time.Time) ([]string, error)
 }

@@ -26,6 +26,14 @@ func (r *EventRepository) GetAll(ids []int64) ([]*entity.Event, error) {
 	return events, err
 }
 
+func (r *EventRepository) GetAllByStream(streamId int64) ([]*entity.Event, error) {
+	events := []*entity.Event{}
+	err := r.DB.Unsafe().Select(&events, `SELECT e.* FROM event e
+INNER JOIN break b ON b.id = e.break_id
+WHERE b.day_id = $1 AND b.is_deleted = false AND e.is_deleted = false`, streamId)
+	return events, err
+}
+
 func (r *EventRepository) GetAllByBreak(breakId int64) ([]*entity.Event, error) {
 	events := []*entity.Event{}
 	err := r.DB.Unsafe().Select(&events, `SELECT * FROM event WHERE break_id = $1 AND is_deleted = false`, breakId)

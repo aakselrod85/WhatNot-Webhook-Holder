@@ -59,6 +59,11 @@ type discordShowInput struct {
 	FailedRecon     *entity.ShowReconciliation // latest row of the failed_to_verify stream; nil if none/not loaded
 	Stats           *entity.StreamStatistic // merged over the streams; nil when none could be loaded
 	Reconciliations []discordReconInput
+	// ButtonPrefix starts the view buttons' custom ids: "show" (default) for the feed message, "stream" for a
+	// /stream-status reply, whose buttons switch only that reply.
+	ButtonPrefix string
+	// StatsReport is the Stats view content (first stream of the show); nil when there is no stream.
+	StatsReport *showStatsReport
 }
 
 // showDisplayState is the furthest of the show's own status and its linked streams' statuses.
@@ -186,14 +191,25 @@ func renderDiscordShow(in discordShowInput) discord.Message {
 	}
 	fitEmbed(&embed)
 
+	components := renderButtons(show, in.View, len(in.Streams) > 0, link, in.StreamUrl, in.ButtonPrefix)
+	if in.View == entity.DiscordViewStats {
+		prefix := in.ButtonPrefix
+		if prefix == "" {
+			prefix = "show"
+		}
+		components = append(components, renderStatsNav(in.StatsReport, prefix, show.Id)...)
+	}
 	return discord.Message{
 		Embeds:          []discord.Embed{embed},
-		Components:      renderButtons(show, in.View, len(in.Streams) > 0, link, in.StreamUrl),
+		Components:      components,
 		AllowedMentions: discord.AllowedMentions{Parse: []string{}},
 	}
 }
 
-func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link string, streamUrl string) []discord.ActionRow {
+func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link string, streamUrl string, prefix string) []discord.ActionRow {
+	if prefix == "" {
+		prefix = "show"
+	}
 	viewRow := discord.ActionRow{Type: discord.ComponentTypeActionRow}
 	views := []struct{ view, label string }{
 		{entity.DiscordViewOverview, "Overview"},
@@ -205,7 +221,7 @@ func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link 
 			Type:     discord.ComponentTypeButton,
 			Style:    discord.ButtonStyleSecondary,
 			Label:    v.label,
-			CustomId: fmt.Sprintf("show:view:%s:%d", v.view, show.Id),
+			CustomId: fmt.Sprintf("%s:view:%s:%d", prefix, v.view, show.Id),
 		}
 		if v.view == view {
 			btn.Style, btn.Disabled = discord.ButtonStylePrimary, true
@@ -225,25 +241,10 @@ func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link 
 }
 
 func renderStatsFields(in discordShowInput) []discord.EmbedField {
-	if len(in.Streams) == 0 {
+	if len(in.Streams) == 0 || in.StatsReport == nil {
 		return []discord.EmbedField{{Name: "Stats", Value: "No stream linked yet"}}
 	}
-	if in.Stats == nil {
-		return []discord.EmbedField{{Name: "Stats", Value: "No sales recorded yet"}}
-	}
-	st := in.Stats
-	fields := []discord.EmbedField{
-		{Name: "Breaks", Value: fmt.Sprint(st.BreaksAmount), Inline: true},
-		{Name: "Earned", Value: fmt.Sprintf("%d$", st.SoldFor), Inline: true},
-		{Name: "Unique customers", Value: fmt.Sprint(st.CustomersAmount), Inline: true},
-	}
-	if len(st.BigCustomers) > 0 {
-		fields = append(fields, discord.EmbedField{Name: "Big customers", Value: strings.Join(st.BigCustomers, ", ")})
-	}
-	if len(st.LuckyGoblins) > 0 {
-		fields = append(fields, discord.EmbedField{Name: "Lucky giveaway goblins", Value: strings.Join(st.LuckyGoblins, ", ")})
-	}
-	return fields
+	return renderStatsReport(in.StatsReport)
 }
 
 func renderReconFields(in discordShowInput) []discord.EmbedField {

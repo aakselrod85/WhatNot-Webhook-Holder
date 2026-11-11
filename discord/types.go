@@ -4,12 +4,16 @@ import "encoding/json"
 
 const (
 	InteractionTypePing             = 1
+	InteractionTypeCommand          = 2
 	InteractionTypeMessageComponent = 3
 
 	ResponseTypePong              = 1
+	ResponseTypeDeferredMessage   = 5
 	ResponseTypeDeferredUpdateMsg = 6
+	ResponseTypeUpdateMessage     = 7
 	ComponentTypeActionRow        = 1
 	ComponentTypeButton           = 2
+	ComponentTypeStringSelect     = 3
 	ButtonStylePrimary            = 1
 	ButtonStyleSecondary          = 2
 	ButtonStyleLink               = 5
@@ -80,19 +84,42 @@ type ActionRow struct {
 	Components []Component `json:"components"`
 }
 
+// Component is a button (Style and Label set) or a string select menu (Options set).
 type Component struct {
-	Type     int    `json:"type"`
-	Style    int    `json:"style"`
-	Label    string `json:"label"`
-	CustomId string `json:"custom_id,omitempty"`
-	URL      string `json:"url,omitempty"`
-	Disabled bool   `json:"disabled,omitempty"`
+	Type        int            `json:"type"`
+	Style       int            `json:"style,omitempty"`
+	Label       string         `json:"label,omitempty"`
+	CustomId    string         `json:"custom_id,omitempty"`
+	URL         string         `json:"url,omitempty"`
+	Disabled    bool           `json:"disabled,omitempty"`
+	Placeholder string         `json:"placeholder,omitempty"`
+	Options     []SelectOption `json:"options,omitempty"`
+}
+
+type SelectOption struct {
+	Label       string `json:"label"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
+	Default     bool   `json:"default,omitempty"`
 }
 
 // Interaction is the part of an incoming interaction this backend reads.
 type Interaction struct {
-	Type int `json:"type"`
-	Data struct {
-		CustomId string `json:"custom_id"`
+	Type          int    `json:"type"`
+	Token         string `json:"token"`
+	ApplicationId string `json:"application_id"`
+	Data          struct {
+		CustomId string   `json:"custom_id"`
+		Values   []string `json:"values"` // chosen options of a select menu
+		Name     string   `json:"name"`
+		Options  []struct {
+			Name  string          `json:"name"`
+			Value json.RawMessage `json:"value"`
+		} `json:"options"`
 	} `json:"data"`
+	// Message is the message a clicked component belongs to.
+	Message struct {
+		Id         string          `json:"id"`
+		Components json.RawMessage `json:"components"`
+	} `json:"message"`
 }

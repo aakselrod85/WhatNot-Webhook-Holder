@@ -2,6 +2,7 @@ package repository_sqlx
 
 import (
 	"fmt"
+	"time"
 	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
 	"github.com/jmoiron/sqlx"
 )
@@ -158,4 +159,19 @@ func (r *StreamRepository) GetEnriched(id int64) (*entity.StreamEnriched, error)
 	`, id)
 
 	return &enriched, err
+}
+
+func (r *StreamRepository) GetPriorBuyers(channelId int64, excludeStreamId int64, before time.Time) ([]string, error) {
+	buyers := []string{}
+	err := r.DB.Select(&buyers, `
+		SELECT DISTINCT lower(trim(e.customer))
+		FROM event e
+		INNER JOIN break b ON b.id = e.break_id
+		INNER JOIN stream s ON s.id = b.day_id
+		WHERE s.channel_id = $1 AND s.id <> $2 AND s.created_at < $3
+		  AND s.is_deleted = false AND b.is_deleted = false AND e.is_deleted = false
+		  AND e.is_giveaway IS NOT TRUE
+		  AND trim(COALESCE(e.customer, '')) NOT IN ('', '?')
+	`, channelId, excludeStreamId, before)
+	return buyers, err
 }
