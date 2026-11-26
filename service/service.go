@@ -38,13 +38,11 @@ type Service struct {
 	repository.OverlayStateRepositorier
 	repository.WhatnotWebhookEventRepositorier
 	repository.ShowReconciliationRepositorier
-	repository.WhatnotShowRepositorier
+	// Discord tables live in the holder database; the show they refer to (by id) lives in mobwebapp's.
 	repository.DiscordFeedChannelRepositorier
 	repository.DiscordShowMessageRepositorier
-	BreakCache  cacheInterface.Cache[*entity.Break]
-	StreamCache cacheInterface.Cache[*entity.Stream]
-	// StreamShowCache is keyed by stream id; a nil value caches "this stream has no show".
-	StreamShowCache              cacheInterface.Cache[*entity.WhatnotShow]
+	BreakCache                   cacheInterface.Cache[*entity.Break]
+	StreamCache                  cacheInterface.Cache[*entity.Stream]
 	ChannelCache                 cacheInterface.Cache[*entity.Channel]
 	SeriesPricesCache            cacheInterface.Cache[[]*entity.SeriesTeamTotal]
 	SeriesWithCountCache         cacheInterface.Cache[*entity.SeriesWithCount]

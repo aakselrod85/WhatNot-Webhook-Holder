@@ -27,10 +27,6 @@ func (s *Service) GetStream(r *GetStreamRequest) (*entity.Stream, error) {
 		return nil, errors.New(fmt.Sprintf("stream for id %d not found", r.Id))
 	}
 
-	// The cached stream carries no show; return a copy filled from the link.
 	stream := *cached
-	if err := s.fillStreamShow(&stream); err != nil {
-		return nil, err
-	}
 	return &stream, nil
 }

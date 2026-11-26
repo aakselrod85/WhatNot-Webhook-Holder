@@ -78,20 +78,19 @@ func (r *PhotoRepository) GetBySeriesId(seriesId int64) ([]*entity.Photo, error)
 	return photos, err
 }
 
-func (r *PhotoRepository) GetUnsoldByChannelActiveStream(channelId int64, withSold bool) ([]*entity.Photo, error) {
+// GetUnsoldBySeriesId is the holder-side half of the channel board query: the caller finds the series of the
+// channel's active break in mobwebapp's database first (BreakRepository.GetActiveSeriesIdByChannel).
+func (r *PhotoRepository) GetUnsoldBySeriesId(seriesId int64, withSold bool) ([]*entity.Photo, error) {
 	photos := []*entity.Photo{}
 	err := r.DB.Select(&photos, `
 SELECT p.*
 FROM photo p
 JOIN series s ON s.id = p.series_id
-JOIN break b ON b.series_id = s.id AND b.is_deleted = false
-JOIN stream st ON st.id = b.day_id AND st.active_break_id = b.id
-JOIN channel c ON c.active_stream_id = st.id
-WHERE c.id = $1
+WHERE s.id = $1
   AND ($2 OR p.is_sold = false)
   AND p.is_deleted = false
   AND s.is_deleted = false
-`, channelId, withSold)
+`, seriesId, withSold)
 	return photos, err
 }
 

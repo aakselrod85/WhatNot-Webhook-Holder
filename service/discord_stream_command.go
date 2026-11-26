@@ -119,13 +119,13 @@ func (s *Service) streamStatusMessage(streamId int64) discord.Message {
 		return discordTextMessage("Could not load the stream, try again later")
 	}
 
-	shows, err := s.WhatnotShowRepositorier.GetByStream(stream.Id)
+	show, err := s.StreamRepositorier.GetWhatnotShow(stream.Id)
 	if err != nil {
-		discordLogf("stream status %d: shows: %s", streamId, err.Error())
+		discordLogf("stream status %d: whatnot show: %s", streamId, err.Error())
 	}
-	// A stream linked to a Whatnot show gets the same card as the show's feed message.
-	if len(shows) > 0 {
-		if msg, err := s.streamShowCard(shows[0], entity.DiscordViewOverview); err == nil {
+	// A stream bound to a Whatnot show gets the same card as the show's feed message.
+	if show != nil {
+		if msg, err := s.streamShowCard(stream, show, entity.DiscordViewOverview); err == nil {
 			return msg
 		} else {
 			discordLogf("stream status %d: show card: %s", streamId, err.Error())
@@ -136,15 +136,15 @@ func (s *Service) streamStatusMessage(streamId int64) discord.Message {
 	if channel, err := s.ChannelRepositorier.Get(stream.ChannelId); err == nil && channel != nil {
 		in.ChannelName = channel.Name
 	}
-	in.Shows = shows
-	if stream.Status == entity.StreamStatusFailedToVerify && len(shows) > 0 {
-		row, err := s.GetReconciliationByStream(stream.Id, shows[0].ShowId)
+	in.Show = show
+	if stream.Status == entity.StreamStatusFailedToVerify && show != nil {
+		row, err := s.GetReconciliationByStream(stream.Id, show.ShowId)
 		if err != nil {
 			discordLogf("stream status %d: reconciliation: %s", streamId, err.Error())
 		}
 		in.FailedRecon = row
 	}
-	in.Stats = s.mergedStreamStats([]*entity.Stream{stream})
+	in.Stats = s.streamStats(stream)
 	if s.FrontendUrl != "" {
 		in.StreamUrl = fmt.Sprintf("%s/stream/%d", s.FrontendUrl, stream.Id)
 	}
@@ -154,7 +154,7 @@ func (s *Service) streamStatusMessage(streamId int64) discord.Message {
 type streamStatusInput struct {
 	Stream      *entity.Stream
 	ChannelName string
-	Shows       []*entity.WhatnotShow // most recently linked first
+	Show        *entity.WhatnotShow // nil = no Whatnot show bound
 	FailedRecon *entity.ShowReconciliation
 	Stats       *entity.StreamStatistic // nil = no sales yet
 	StreamUrl   string                  // empty = no link
@@ -164,6 +164,8 @@ func renderStreamStatus(in streamStatusInput) discord.Message {
 	st := in.Stream
 	color, statusLine := discordColorPlanned, "🗓️ Planned"
 	switch st.Status {
+	case entity.StreamStatusCancelled:
+		statusLine = "🚫 Cancelled"
 	case entity.StreamStatusLive:
 		color, statusLine = discordColorLive, "🔴 Live"
 	case entity.StreamStatusEnded:
@@ -190,17 +192,14 @@ func renderStreamStatus(in streamStatusInput) discord.Message {
 	}
 	embed.Fields = append(embed.Fields, discord.EmbedField{Name: "Created", Value: fmt.Sprintf("<t:%d:f>", st.CreatedAt.Unix()), Inline: true})
 
-	if len(in.Shows) > 0 {
-		lines := make([]string, 0, len(in.Shows))
-		for _, sh := range in.Shows {
-			name := sh.Title
-			if name == "" {
-				name = "Whatnot show"
-			}
-			lines = append(lines, fmt.Sprintf("[%s](%s)", strings.ReplaceAll(name, "]", ")"), whatnotShowURL(sh.ShowId)))
+	if sh := in.Show; sh != nil {
+		name := sh.Title
+		if name == "" {
+			name = "Whatnot show"
 		}
-		embed.Fields = append(embed.Fields, discord.EmbedField{Name: "Whatnot show", Value: strings.Join(lines, "\n")})
-		if sh := in.Shows[0]; sh.ThumbnailUrl != "" {
+		embed.Fields = append(embed.Fields, discord.EmbedField{Name: "Whatnot show",
+			Value: fmt.Sprintf("[%s](%s)", strings.ReplaceAll(name, "]", ")"), whatnotShowURL(sh.ShowId))})
+		if sh.ThumbnailUrl != "" {
 			embed.Image = &discord.EmbedImage{URL: sh.ThumbnailUrl}
 		}
 	}
@@ -230,8 +229,8 @@ func renderStreamStatus(in streamStatusInput) discord.Message {
 }
 
 // streamShowCard renders the show's feed card for a /stream-status reply; its view buttons use the "stream" prefix.
-func (s *Service) streamShowCard(show *entity.WhatnotShow, view string) (discord.Message, error) {
-	in, err := s.loadDiscordShowInput(show, view)
+func (s *Service) streamShowCard(stream *entity.Stream, show *entity.WhatnotShow, view string) (discord.Message, error) {
+	in, err := s.loadDiscordShowInput(stream, show, view)
 	if err != nil {
 		return discord.Message{}, err
 	}

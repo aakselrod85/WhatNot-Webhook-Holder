@@ -17,7 +17,7 @@ func (s *Service) SetActiveBreak(r *SetActiveBreakRequest) (*SetActiveBreakRespo
 		return nil, err
 	}
 	stream.ActiveBreakId = r.ActiveBreakId
-	err = s.StreamRepositorier.Update(stream)
+	err = s.StreamRepositorier.SetActiveBreak(stream.Id, r.ActiveBreakId)
 	if err != nil {
 		return &SetActiveBreakResponse{}, err
 	}
@@ -28,7 +28,7 @@ func (s *Service) SetActiveBreak(r *SetActiveBreakRequest) (*SetActiveBreakRespo
 		return nil, err
 	}
 	channel.ActiveStreamId = &r.StreamId
-	err = s.ChannelRepositorier.Update(channel)
+	err = s.ChannelRepositorier.SetActiveStream(channel.Id, &r.StreamId)
 	if err != nil {
 		return &SetActiveBreakResponse{}, err
 	}

@@ -1,7 +1,9 @@
 package service
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -93,11 +95,11 @@ func (s *Service) HandleDiscordComponent(in discord.Interaction, acked <-chan st
 
 // loadFeedPage stores the chosen view of the show's feed message and re-renders that message.
 func (s *Service) loadFeedPage(showId int64, view string) error {
-	show, err := s.WhatnotShowRepositorier.Get(showId)
+	stream, show, err := s.loadDiscordShow(showId)
 	if err != nil {
 		return err
 	}
-	if show == nil || show.Status == entity.WhatnotShowStatusCancelled {
+	if show == nil || stream.Status == entity.StreamStatusCancelled {
 		return errShowUnavailable
 	}
 	if err := s.DiscordShowMessageRepositorier.SetView(showId, view); err != nil {
@@ -108,18 +110,34 @@ func (s *Service) loadFeedPage(showId int64, view string) error {
 
 // loadStreamReplyPage re-renders a /stream-status reply in the chosen view; the feed message is left alone.
 func (s *Service) loadStreamReplyPage(in discord.Interaction, showId int64, view string) error {
-	show, err := s.WhatnotShowRepositorier.Get(showId)
+	stream, show, err := s.loadDiscordShow(showId)
 	if err != nil {
 		return err
 	}
 	if show == nil {
 		return errShowUnavailable
 	}
-	msg, err := s.streamShowCard(show, view)
+	msg, err := s.streamShowCard(stream, show, view)
 	if err != nil {
 		return err
 	}
 	return s.Discord.EditInteractionResponse(in.ApplicationId, in.Token, msg)
+}
+
+// loadDiscordShow returns the show and its bound Whatnot show; both nil when the show is deleted or has none bound.
+func (s *Service) loadDiscordShow(showId int64) (*entity.Stream, *entity.WhatnotShow, error) {
+	stream, err := s.StreamRepositorier.Get(showId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	show, err := s.StreamRepositorier.GetWhatnotShow(showId)
+	if err != nil || show == nil {
+		return stream, nil, err
+	}
+	return stream, show, nil
 }
 
 type discordError string

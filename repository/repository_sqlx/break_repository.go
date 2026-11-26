@@ -1,81 +1,89 @@
 package repository_sqlx
 
 import (
-	"fmt"
+	"database/sql"
+	"time"
+
 	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
 	"github.com/jmoiron/sqlx"
 )
 
+// BreakRepository works on mobwebapp's show_breaks table (the second connection pool).
 type BreakRepository struct {
 	DB *sqlx.DB
 }
 
-func (r *BreakRepository) Create(dayBreak *entity.Break) (int64, error) {
-	var id int64
-	rows, err := r.DB.NamedQuery(`INSERT INTO break (
-		day_id, name, start_date, end_date, is_deleted, high_bid_team, giveaway_team, high_bid_floor
-	) VALUES (
-		:day_id,
-		:name,
-		:start_date,
-		:end_date,
-		:is_deleted,
-		:high_bid_team,
-		:giveaway_team,
-	  	:high_bid_floor
-	) RETURNING (id)`, dayBreak)
-	if err != nil {
-		return id, err
-	}
+// breakCols maps show_breaks onto entity.Break. A null started_at / ended_at is the zero time, as the holder's
+// date columns stored it. number, status and whatnot_ref are never written.
+const breakCols = `b.id, b.show_id AS day_id, b.title AS name, b.high_bid_team, b.giveaway_team, b.high_bid_floor,
+	COALESCE(b.started_at, '0001-01-01 00:00:00+00') AS start_date,
+	COALESCE(b.ended_at, '0001-01-01 00:00:00+00') AS end_date,
+	(b.deleted_at IS NOT NULL) AS is_deleted, b.series_id, b.number`
 
-	defer rows.Close()
-
-	if rows.Next() {
-		if err = rows.Scan(&id); err != nil {
-			return 0, err
-		}
-	} else {
-		return 0, fmt.Errorf("no rows returned after INSERT")
-	}
-	return id, err
+// nullTime stores the zero time as NULL.
+func nullTime(t time.Time) sql.NullTime {
+	return sql.NullTime{Time: t, Valid: !t.IsZero()}
 }
 
 func (r *BreakRepository) Get(id int64) (*entity.Break, error) {
 	var dayBreak entity.Break
-	err := r.DB.Unsafe().Get(&dayBreak, `SELECT * FROM break WHERE id = $1 AND is_deleted = false`, id)
+	err := r.DB.Unsafe().Get(&dayBreak, `SELECT `+breakCols+` FROM show_breaks b WHERE b.id = $1 AND b.deleted_at IS NULL`, id)
 	return &dayBreak, err
 }
 
 func (r *BreakRepository) Delete(id int64) error {
 	_, err := r.DB.Exec(`
-WITH updatedBreak AS (UPDATE break SET is_deleted = true WHERE id = $1),
-updatedEvent AS (UPDATE event SET is_deleted = true WHERE break_id = $1)
+WITH updatedBreak AS (UPDATE show_breaks SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL),
+updatedEvent AS (UPDATE break_spots SET deleted_at = now() WHERE break_id = $1 AND deleted_at IS NULL)
 SELECT TRUE
 `, id)
 	return err
 }
 
 func (r *BreakRepository) Update(dayBreak *entity.Break) error {
-	_, err := r.DB.NamedExec(`UPDATE break SET
-		day_id = :day_id,
-		name = :name,
-		start_date = :start_date,
-		end_date = :end_date,
-		high_bid_team = :high_bid_team,
-		giveaway_team = :giveaway_team,
-		high_bid_floor = :high_bid_floor
-	WHERE id = :id`, dayBreak)
+	_, err := r.DB.Exec(`UPDATE show_breaks SET
+		started_at = $2,
+		ended_at = $3,
+		high_bid_team = $4,
+		giveaway_team = $5,
+		high_bid_floor = $6
+	WHERE id = $1`, dayBreak.Id, nullTime(dayBreak.StartDate), nullTime(dayBreak.EndDate),
+		dayBreak.HighBidTeam, dayBreak.GiveawayTeam, dayBreak.HighBidFloor)
 
+	return err
+}
+
+func (r *BreakRepository) Rename(id int64, name string) error {
+	_, err := r.DB.Exec(`UPDATE show_breaks SET title = $2 WHERE id = $1`, id, name)
 	return err
 }
 
 func (r *BreakRepository) GetBreaksByStreamId(dayId int64) ([]*entity.Break, error) {
 	breaks := []*entity.Break{}
-	err := r.DB.Unsafe().Select(&breaks, `SELECT * FROM break WHERE day_id = $1 AND is_deleted = false`, dayId)
+	err := r.DB.Unsafe().Select(&breaks, `SELECT `+breakCols+` FROM show_breaks b WHERE b.show_id = $1 AND b.deleted_at IS NULL ORDER BY b.number, b.id`, dayId)
 	return breaks, err
 }
 
 func (r *BreakRepository) SetSeries(breakID int64, seriesID *int64) error {
-	_, err := r.DB.Exec(`UPDATE break SET series_id = $1 WHERE id = $2`, seriesID, breakID)
+	_, err := r.DB.Exec(`UPDATE show_breaks SET series_id = $1 WHERE id = $2`, seriesID, breakID)
 	return err
+}
+
+// GetActiveSeriesIdByChannel returns the series of the channel's active break; nil, nil when the channel has no
+// active show, no active break, or the break has no series. The break must not be deleted.
+func (r *BreakRepository) GetActiveSeriesIdByChannel(channelId int64) (*int64, error) {
+	var seriesId sql.NullInt64
+	err := r.DB.Get(&seriesId, `
+SELECT b.series_id
+FROM channels c
+JOIN shows s ON s.id = c.active_show_id
+JOIN show_breaks b ON b.id = s.active_break_id AND b.show_id = s.id AND b.deleted_at IS NULL
+WHERE c.id = $1`, channelId)
+	if err == sql.ErrNoRows || (err == nil && !seriesId.Valid) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &seriesId.Int64, nil
 }
