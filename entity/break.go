@@ -15,4 +15,6 @@ type Break struct {
 	EndDate   time.Time `json:"end_date" db:"end_date"`
 	IsDeleted bool      `json:"is_deleted" db:"is_deleted"`
 	SeriesId  *int64    `json:"series_id"  db:"series_id"`
+	// Number is show_breaks.number, the order of breaks inside a show. Not serialized.
+	Number int `json:"-" db:"number"`
 }

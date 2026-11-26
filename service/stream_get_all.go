@@ -51,9 +51,6 @@ func (s *Service) GetChannelStreams(r *GetChannelStreamsRequest) (*GetChannelStr
 		streamResponse.Name = stream.Name
 		streamResponse.IsEnded = stream.IsEnded
 		streamResponse.Status = stream.Status
-		if err := s.fillStreamShow(stream); err != nil {
-			return nil, err
-		}
 		streamResponse.WhatnotShowId = stream.WhatnotShowId
 		streamResponses[i] = &streamResponse
 	}

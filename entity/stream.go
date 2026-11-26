@@ -2,7 +2,8 @@ package entity
 
 import "time"
 
-// WhatnotShowId/WhatnotShowName are not columns: they are filled from the stream_whatnot_show link (Service.fillStreamShow).
+// A Stream is a row of mobwebapp's shows table (see CLAUDE.md). WhatnotShowId is shows.whatnot_show_id.
+// WhatnotShowName is shows.whatnot_show_title, null when empty.
 type Stream struct {
 	Id              int64     `db:"id" json:"id"`
 	Name            string    `db:"name" json:"name"`
@@ -11,8 +12,8 @@ type Stream struct {
 	IsDeleted       bool      `json:"is_deleted" db:"is_deleted"`
 	IsEnded         bool      `json:"is_ended" db:"is_ended"`
 	ActiveBreakId   *int64    `json:"active_break_id" db:"active_break_id"`
-	WhatnotShowId   *string   `json:"whatnot_show_id" db:"-"`
-	WhatnotShowName *string   `json:"whatnot_show_name" db:"-"`
+	WhatnotShowId   *string   `json:"whatnot_show_id" db:"whatnot_show_id"`
+	WhatnotShowName *string   `json:"whatnot_show_name" db:"whatnot_show_name"`
 	Status          string    `json:"status" db:"status"`
 }
 
@@ -21,6 +22,8 @@ const (
 	StreamStatusLive     = "live"
 	StreamStatusEnded    = "ended"
 	StreamStatusVerified = "verified"
+	// StreamStatusCancelled is a show Whatnot cancelled before it started.
+	StreamStatusCancelled = "cancelled"
 	// StreamStatusFailedToVerify sits between ended and verified: the last real reconciliation was needs_manual or failed.
 	StreamStatusFailedToVerify = "failed_to_verify"
 )
@@ -38,4 +41,14 @@ type StreamStatistic struct {
 type StreamEnriched struct {
 	*Stream
 	ChannelName string `db:"channel_name"`
+}
+
+// WhatnotShowContent is what a show keeps of its bound Whatnot show.
+type WhatnotShowContent struct {
+	Title        string // the Whatnot show's own title (shows.whatnot_show_title)
+	Description  string
+	ThumbnailUrl string
+	Visibility   string
+	ScheduledAt  *time.Time
+	EndedAt      *time.Time
 }

@@ -2,26 +2,18 @@ package entity
 
 import "time"
 
-const (
-	WhatnotShowStatusPlanned   = "planned"
-	WhatnotShowStatusLive      = "live"
-	WhatnotShowStatusEnded     = "ended"
-	WhatnotShowStatusCancelled = "cancelled"
-)
-
-// WhatnotShow is one Whatnot show of a channel. Streams relate to it through stream_whatnot_show.
+// WhatnotShow is what a show (a holder stream, a row of mobwebapp's shows) keeps of its bound Whatnot show.
+// Id is the show's id; ShowId is the Whatnot show id (shows.whatnot_show_id). Title is the Whatnot show's title
+// (shows.whatnot_show_title) when stored, else the show's own title. The status is the show's (Stream.Status).
 type WhatnotShow struct {
-	Id            int64      `json:"id" db:"id"`
-	ChannelId     int64      `json:"channel_id" db:"channel_id"`
-	ShowId        string     `json:"show_id" db:"show_id"`
-	Title         string     `json:"title" db:"title"`
-	Description   string     `json:"description" db:"description"`
-	ThumbnailUrl  string     `json:"thumbnail_url" db:"thumbnail_url"`
-	Visibility    string     `json:"visibility" db:"visibility"`
-	ScheduledDate *time.Time `json:"scheduled_date" db:"scheduled_date"`
-	CreatedDate   time.Time  `json:"created_date" db:"created_date"`
-	Status        string     `json:"status" db:"status"`
-	StartedAt     *time.Time `json:"started_at" db:"started_at"`
-	EndedAt       *time.Time `json:"ended_at" db:"ended_at"`
-	UpdatedDate   *time.Time `json:"updated_date" db:"updated_date"`
+	Id            int64      `db:"id"`
+	ChannelId     int64      `db:"channel_id"`
+	ShowId        string     `db:"show_id"`
+	Title         string     `db:"title"`
+	Description   string     `db:"description"`
+	ThumbnailUrl  string     `db:"thumbnail_url"`
+	Visibility    string     `db:"visibility"`
+	ScheduledDate *time.Time `db:"scheduled_date"`
+	StartedAt     *time.Time `db:"started_at"`
+	EndedAt       *time.Time `db:"ended_at"`
 }

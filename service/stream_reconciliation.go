@@ -32,21 +32,17 @@ type StreamReconciliationResponse struct {
 	Item *ReconciliationItem `json:"item"`
 }
 
-// StreamReconciliation returns the reconciliation of the stream's currently linked show without the
+// StreamReconciliation returns the reconciliation of the stream's bound Whatnot show without the
 // orders blob; item is null when no show is linked or none ran yet for that show.
 func (s *Service) StreamReconciliation(r *StreamReconciliationRequest) (*StreamReconciliationResponse, error) {
 	stream, err := s.StreamRepositorier.Get(r.StreamId)
 	if err != nil {
 		return nil, err
 	}
-	show, err := s.streamShow(stream.Id)
-	if err != nil {
-		return nil, err
-	}
-	if show == nil {
+	if stream.WhatnotShowId == nil {
 		return &StreamReconciliationResponse{}, nil
 	}
-	row, err := s.GetReconciliationByStream(r.StreamId, show.ShowId)
+	row, err := s.GetReconciliationByStream(r.StreamId, *stream.WhatnotShowId)
 	if err != nil {
 		return nil, err
 	}
@@ -92,14 +88,10 @@ func (s *Service) ReconciliationSaveManualMap(r *ReconciliationSaveManualMapRequ
 	if err != nil {
 		return nil, err
 	}
-	show, err := s.streamShow(stream.Id)
-	if err != nil {
-		return nil, err
-	}
-	if show == nil {
+	if stream.WhatnotShowId == nil {
 		return &ReconciliationSaveManualMapResponse{Success: true}, nil
 	}
-	if err := s.SetReconciliationManualMap(r.StreamId, show.ShowId, encoded); err != nil {
+	if err := s.SetReconciliationManualMap(r.StreamId, *stream.WhatnotShowId, encoded); err != nil {
 		return nil, err
 	}
 	return &ReconciliationSaveManualMapResponse{Success: true}, nil

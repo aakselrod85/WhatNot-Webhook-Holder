@@ -6,7 +6,7 @@ type PhotoRepositorier interface {
 	Create(p *entity.Photo) (int64, error)
 	GetById(id int64) (*entity.Photo, error)
 	GetBySeriesId(seriesId int64) ([]*entity.Photo, error)
-	GetUnsoldByChannelActiveStream(channelId int64, withSold bool) ([]*entity.Photo, error)
+	GetUnsoldBySeriesId(seriesId int64, withSold bool) ([]*entity.Photo, error)
 	Update(id int64, name, team string, price int64) error
 	UpdateUrl(id int64, url string) error
 	UpdateBounds(id int64, version int64, art entity.Bounds, label entity.Bounds, labelText string) error

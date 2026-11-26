@@ -42,71 +42,36 @@ func whatnotShowURL(showId string) string {
 	return "https://www.whatnot.com/live/" + showId
 }
 
-// discordReconInput is one linked stream with its reconciliation of this show (Row nil = none yet).
-type discordReconInput struct {
-	Stream *entity.Stream
-	Row    *entity.ShowReconciliation
-}
-
 // discordShowInput is everything renderDiscordShow needs; the function itself does no I/O.
 type discordShowInput struct {
-	Show            *entity.WhatnotShow
-	View            string
-	ChannelName     string
-	Streams         []*entity.Stream
-	FailedStreamId  int64                      // stream FailedRecon belongs to; 0 if none
-	StreamUrl       string                     // ready "Open stream" link; empty = no button
-	FailedRecon     *entity.ShowReconciliation // latest row of the failed_to_verify stream; nil if none/not loaded
-	Stats           *entity.StreamStatistic // merged over the streams; nil when none could be loaded
-	Reconciliations []discordReconInput
+	Show        *entity.WhatnotShow
+	Stream      *entity.Stream // the show itself: its status drives the card
+	View        string
+	ChannelName string
+	StreamUrl   string                     // ready "Open stream" link; empty = no button
+	FailedRecon *entity.ShowReconciliation // latest reconciliation row when the show is failed_to_verify; nil if none
+	// Reconciliation is the latest reconciliation row of the show's Whatnot show, for the Reconciliation view (nil = none yet).
+	Reconciliation *entity.ShowReconciliation
 	// ButtonPrefix starts the view buttons' custom ids: "show" (default) for the feed message, "stream" for a
 	// /stream-status reply, whose buttons switch only that reply.
 	ButtonPrefix string
-	// StatsReport is the Stats view content (first stream of the show); nil when there is no stream.
+	// StatsReport is the Stats view content; nil when it could not be built.
 	StatsReport *showStatsReport
 }
 
-// showDisplayState is the furthest of the show's own status and its linked streams' statuses.
-func showDisplayState(show *entity.WhatnotShow, streams []*entity.Stream) int {
-	state := showStatePlanned
-	switch show.Status {
-	case entity.WhatnotShowStatusLive:
-		state = showStateLive
-	case entity.WhatnotShowStatusEnded:
-		state = showStateEnded
-	}
-	verified := len(streams) > 0
-	failed := false
-	for _, st := range streams {
-		switch st.Status {
-		case entity.StreamStatusFailedToVerify:
-			failed = true
-			verified = false
-		case entity.StreamStatusVerified:
-			if state < showStateEnded {
-				state = showStateEnded
-			}
-		case entity.StreamStatusEnded:
-			if state < showStateEnded {
-				state = showStateEnded
-			}
-			verified = false
-		case entity.StreamStatusLive:
-			if state < showStateLive {
-				state = showStateLive
-			}
-			verified = false
-		default:
-			verified = false
-		}
-	}
-	if verified {
+// showDisplayState maps the show's status (a cancelled show has no card) to a display state.
+func showDisplayState(stream *entity.Stream) int {
+	switch stream.Status {
+	case entity.StreamStatusLive:
+		return showStateLive
+	case entity.StreamStatusEnded:
+		return showStateEnded
+	case entity.StreamStatusFailedToVerify:
+		return showStateFailed
+	case entity.StreamStatusVerified:
 		return showStateVerified
 	}
-	if failed {
-		return showStateFailed
-	}
-	return state
+	return showStatePlanned
 }
 
 // failureReason explains a failed_to_verify stream from its latest reconciliation row.
@@ -133,7 +98,7 @@ func failureReason(row *entity.ShowReconciliation) string {
 
 func renderDiscordShow(in discordShowInput) discord.Message {
 	show := in.Show
-	state := showDisplayState(show, in.Streams)
+	state := showDisplayState(in.Stream)
 
 	color, statusLine := discordColorPlanned, "🗓️ Scheduled"
 	switch state {
@@ -164,7 +129,7 @@ func renderDiscordShow(in discordShowInput) discord.Message {
 	if show.Description != "" {
 		description += "\n\n" + show.Description
 	}
-	title := show.Title
+	title := show.Title // the Whatnot title when stored, else the show's own
 	if title == "" {
 		title = "Whatnot show"
 	}
@@ -191,7 +156,7 @@ func renderDiscordShow(in discordShowInput) discord.Message {
 	}
 	fitEmbed(&embed)
 
-	components := renderButtons(show, in.View, len(in.Streams) > 0, link, in.StreamUrl, in.ButtonPrefix)
+	components := renderButtons(show, in.View, link, in.StreamUrl, in.ButtonPrefix)
 	if in.View == entity.DiscordViewStats {
 		prefix := in.ButtonPrefix
 		if prefix == "" {
@@ -206,7 +171,7 @@ func renderDiscordShow(in discordShowInput) discord.Message {
 	}
 }
 
-func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link string, streamUrl string, prefix string) []discord.ActionRow {
+func renderButtons(show *entity.WhatnotShow, view string, link string, streamUrl string, prefix string) []discord.ActionRow {
 	if prefix == "" {
 		prefix = "show"
 	}
@@ -225,8 +190,6 @@ func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link 
 		}
 		if v.view == view {
 			btn.Style, btn.Disabled = discord.ButtonStylePrimary, true
-		} else if v.view != entity.DiscordViewOverview && !hasStreams {
-			btn.Disabled = true
 		}
 		viewRow.Components = append(viewRow.Components, btn)
 	}
@@ -241,25 +204,14 @@ func renderButtons(show *entity.WhatnotShow, view string, hasStreams bool, link 
 }
 
 func renderStatsFields(in discordShowInput) []discord.EmbedField {
-	if len(in.Streams) == 0 || in.StatsReport == nil {
-		return []discord.EmbedField{{Name: "Stats", Value: "No stream linked yet"}}
+	if in.StatsReport == nil {
+		return []discord.EmbedField{{Name: "Stats", Value: "No stats yet"}}
 	}
 	return renderStatsReport(in.StatsReport)
 }
 
 func renderReconFields(in discordShowInput) []discord.EmbedField {
-	if len(in.Reconciliations) == 0 {
-		return []discord.EmbedField{{Name: "Reconciliation", Value: "No stream linked yet"}}
-	}
-	fields := make([]discord.EmbedField, 0, len(in.Reconciliations))
-	for _, rc := range in.Reconciliations {
-		name := "Reconciliation"
-		if rc.Stream != nil && (len(in.Reconciliations) > 1 || rc.Stream.Name != "") {
-			name = "Reconciliation: " + rc.Stream.Name
-		}
-		fields = append(fields, discord.EmbedField{Name: name, Value: renderReconValue(rc.Row)})
-	}
-	return fields
+	return []discord.EmbedField{{Name: "Reconciliation", Value: renderReconValue(in.Reconciliation)}}
 }
 
 func renderReconValue(row *entity.ShowReconciliation) string {

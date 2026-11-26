@@ -12,7 +12,7 @@ import (
 	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
 )
 
-// The Stats view of a show card: totals of the show's first stream plus one break at a time (◀ ▶ buttons).
+// The Stats view of a show card: totals of the show plus one break at a time (◀ ▶ buttons).
 // The selected break travels in the view string as "stats:<break id>"; plain "stats" = the latest break.
 
 const discordStatsViewPrefix = entity.DiscordViewStats + ":"
@@ -69,12 +69,8 @@ func isBuyerEvent(e *entity.Event) bool {
 	return !e.IsGiveaway && c != "" && c != entity.NoCustomer
 }
 
-// buildShowStats computes the Stats view for the show from its first stream. nil when the show has no stream.
-func (s *Service) buildShowStats(show *entity.WhatnotShow, streams []*entity.Stream, selectedBreakId int64) (*showStatsReport, error) {
-	if len(streams) == 0 {
-		return nil, nil
-	}
-	stream := streams[0]
+// buildShowStats computes the Stats view for the show (the show is the stream).
+func (s *Service) buildShowStats(show *entity.WhatnotShow, stream *entity.Stream, selectedBreakId int64) (*showStatsReport, error) {
 	breaks, err := s.BreakRepositorier.GetBreaksByStreamId(stream.Id)
 	if err != nil {
 		return nil, err

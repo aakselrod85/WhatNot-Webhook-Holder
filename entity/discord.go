@@ -9,7 +9,7 @@ const (
 )
 
 type DiscordShowMessage struct {
-	WhatnotShowId    int64     `json:"whatnot_show_id" db:"whatnot_show_id"`
+	ShowId           int64     `json:"show_id" db:"whatnot_show_id"` // the mobwebapp show id (column name kept)
 	View             string    `json:"view" db:"view"`
 	DiscordChannelId *string   `json:"discord_channel_id" db:"discord_channel_id"`
 	DiscordMessageId *string   `json:"discord_message_id" db:"discord_message_id"`

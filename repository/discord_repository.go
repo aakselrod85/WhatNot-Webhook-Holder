@@ -10,12 +10,13 @@ type DiscordFeedChannelRepositorier interface {
 }
 
 type DiscordShowMessageRepositorier interface {
+	// Keyed by the mobwebapp show id (the column is still named whatnot_show_id).
 	// Get returns nil, nil when the show has no row yet.
-	Get(whatnotShowId int64) (*entity.DiscordShowMessage, error)
+	Get(showId int64) (*entity.DiscordShowMessage, error)
 	// SetView creates the row when missing.
-	SetView(whatnotShowId int64, view string) error
+	SetView(showId int64, view string) error
 	// SetMessage stores where the message was posted; an empty messageId clears it.
-	SetMessage(whatnotShowId int64, discordChannelId string, messageId string) error
+	SetMessage(showId int64, discordChannelId string, messageId string) error
 	// SetPinned records that the show message is pinned.
-	SetPinned(whatnotShowId int64, pinned bool) error
+	SetPinned(showId int64, pinned bool) error
 }

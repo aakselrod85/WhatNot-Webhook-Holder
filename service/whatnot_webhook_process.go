@@ -9,7 +9,7 @@ import (
 
 // whatnotWebhookHandlers is the topic dispatcher: adding a topic = one entry here + one handler.
 var whatnotWebhookHandlers = map[string]func(s *Service, ev *entity.WhatnotWebhookEvent, data json.RawMessage) error{
-	"shows.created":   (*Service).onWhatnotShowCreated,
+	"shows.created":   (*Service).onWhatnotShowUpdated,
 	"shows.updated":   (*Service).onWhatnotShowUpdated,
 	"shows.started":   (*Service).onWhatnotShowStarted,
 	"shows.ended":     (*Service).onWhatnotShowEnded,

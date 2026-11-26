@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/SaloEater/WhatNot-Webhook-Holder/cache"
 	"github.com/SaloEater/WhatNot-Webhook-Holder/entity"
 	"github.com/SaloEater/WhatNot-Webhook-Holder/whatnot"
 )
@@ -29,87 +30,45 @@ func webhookEventTime(ev *entity.WhatnotWebhookEvent) time.Time {
 	return time.Now().UTC()
 }
 
-func parseWebhookTime(v string) *time.Time {
-	t, err := time.Parse(time.RFC3339Nano, v)
-	if err != nil {
-		return nil
-	}
-	return &t
-}
-
-// whatnotShowFromAPI maps the Whatnot show shape (REST get-a-show and the data of shows.created/updated) to a row.
-// Unknown statuses map to planned, which the forward-only status rule never lets regress a stored status.
-func whatnotShowFromAPI(channelId int64, wn *whatnot.Show) *entity.WhatnotShow {
-	show := &entity.WhatnotShow{
-		ChannelId:     channelId,
-		ShowId:        wn.Id,
-		Title:         wn.Title,
-		Description:   wn.Description,
-		Visibility:    wn.Visibility,
-		ScheduledDate: wn.ScheduledStartAt,
-		CreatedDate:   time.Now().UTC(),
-		UpdatedDate:   parseWebhookTime(wn.UpdatedAt),
-		Status:        entity.WhatnotShowStatusPlanned,
-	}
-	if t := parseWebhookTime(wn.CreatedAt); t != nil {
-		show.CreatedDate = *t
+// whatnotContentFromAPI maps the Whatnot show shape (REST get-a-show and the data of shows.created/updated) to the
+// fields a show keeps.
+func whatnotContentFromAPI(wn *whatnot.Show) *entity.WhatnotShowContent {
+	c := &entity.WhatnotShowContent{
+		Title:       wn.Title,
+		Description: wn.Description,
+		Visibility:  wn.Visibility,
+		ScheduledAt: wn.ScheduledStartAt,
+		EndedAt:     wn.EndedAt,
 	}
 	if wn.Thumbnail != nil {
-		show.ThumbnailUrl = wn.Thumbnail.Url
+		c.ThumbnailUrl = wn.Thumbnail.Url
 	}
-	switch wn.Status {
-	case "live":
-		show.Status = entity.WhatnotShowStatusLive
-	case "ended":
-		show.Status = entity.WhatnotShowStatusEnded
-	case "cancelled":
-		show.Status = entity.WhatnotShowStatusCancelled
-	}
-	return show
+	return c
 }
 
-func decodeWhatnotShowEvent(ev *entity.WhatnotWebhookEvent, data json.RawMessage) (*entity.WhatnotShow, error) {
+// boundStream returns the show of the event's channel bound to the Whatnot show; nil when none is (the event is
+// then ignored: the holder never creates a show from Whatnot).
+func (s *Service) boundStream(ev *entity.WhatnotWebhookEvent, whatnotShowId string) (*entity.Stream, error) {
+	return s.StreamRepositorier.GetByWhatnotShowId(ev.ChannelId, whatnotShowId)
+}
+
+// onWhatnotShowUpdated overwrites the content fields of the bound show. shows.created is handled the same way.
+func (s *Service) onWhatnotShowUpdated(ev *entity.WhatnotWebhookEvent, data json.RawMessage) error {
 	var wn whatnot.Show
 	if err := json.Unmarshal(data, &wn); err != nil {
-		return nil, err
+		return err
 	}
 	if wn.Id == "" {
-		return nil, fmt.Errorf("no id in event data")
+		return fmt.Errorf("no id in event data")
 	}
-	return whatnotShowFromAPI(ev.ChannelId, &wn), nil
-}
-
-func (s *Service) onWhatnotShowCreated(ev *entity.WhatnotWebhookEvent, data json.RawMessage) error {
-	show, err := decodeWhatnotShowEvent(ev, data)
-	if err != nil {
+	stream, err := s.boundStream(ev, wn.Id)
+	if err != nil || stream == nil {
 		return err
 	}
-	if err := s.WhatnotShowRepositorier.Upsert(show); err != nil {
+	if err := s.StreamRepositorier.UpdateWhatnotContent(stream.Id, whatnotContentFromAPI(&wn)); err != nil {
 		return err
 	}
-	if err := s.stampShowStatusTime(show.Id, webhookEventTime(ev)); err != nil {
-		return err
-	}
-	s.invalidateShowStreams(show.Id)
-	s.syncDiscordShowAsync(show.Id)
-	return nil
-}
-
-// onWhatnotShowUpdated overwrites the content fields; a stale event (older updated_at) is ignored without a sync.
-func (s *Service) onWhatnotShowUpdated(ev *entity.WhatnotWebhookEvent, data json.RawMessage) error {
-	show, err := decodeWhatnotShowEvent(ev, data)
-	if err != nil {
-		return err
-	}
-	applied, err := s.WhatnotShowRepositorier.UpsertOverwrite(show)
-	if err != nil || !applied {
-		return err
-	}
-	if err := s.stampShowStatusTime(show.Id, webhookEventTime(ev)); err != nil {
-		return err
-	}
-	s.invalidateShowStreams(show.Id)
-	s.syncDiscordShowAsync(show.Id)
+	s.syncDiscordShowAsync(stream.Id)
 	return nil
 }
 
@@ -118,33 +77,20 @@ func (s *Service) onWhatnotShowStarted(ev *entity.WhatnotWebhookEvent, data json
 	if err != nil {
 		return err
 	}
-	show, err := s.ensureWhatnotShow(ev.ChannelId, showId)
-	if err != nil {
+	stream, err := s.boundStream(ev, showId)
+	if err != nil || stream == nil {
 		return err
 	}
-	if show.Status == entity.WhatnotShowStatusPlanned {
-		startedAt := webhookEventTime(ev)
-		if err := s.WhatnotShowRepositorier.SetStatus(show.Id, entity.WhatnotShowStatusLive, &startedAt, nil); err != nil {
-			return err
-		}
-		s.invalidateShowStreams(show.Id)
-		s.syncDiscordShowAsync(show.Id)
-	}
-
-	streams, err := s.WhatnotShowRepositorier.GetStreams(show.Id)
-	if err != nil {
+	startedAt := webhookEventTime(ev)
+	if err := s.StreamRepositorier.SetTimes(stream.Id, &startedAt, nil); err != nil {
 		return err
 	}
-	for _, stream := range streams {
-		switch stream.Status {
-		case entity.StreamStatusLive, entity.StreamStatusEnded, entity.StreamStatusFailedToVerify, entity.StreamStatusVerified:
-			continue
-		}
-		if err := s.SetStreamStatus(stream, entity.StreamStatusLive); err != nil {
-			return err
-		}
+	switch stream.Status {
+	case entity.StreamStatusLive, entity.StreamStatusEnded, entity.StreamStatusFailedToVerify, entity.StreamStatusVerified:
+		s.syncDiscordShowAsync(stream.Id) // the started time changed; SetStreamStatus below syncs otherwise
+		return nil
 	}
-	return nil
+	return s.SetStreamStatus(stream, entity.StreamStatusLive)
 }
 
 func (s *Service) onWhatnotShowEnded(ev *entity.WhatnotWebhookEvent, data json.RawMessage) error {
@@ -152,49 +98,38 @@ func (s *Service) onWhatnotShowEnded(ev *entity.WhatnotWebhookEvent, data json.R
 	if err != nil {
 		return err
 	}
-	show, err := s.ensureWhatnotShow(ev.ChannelId, showId)
-	if err != nil {
+	stream, err := s.boundStream(ev, showId)
+	if err != nil || stream == nil {
 		return err
 	}
-	if show.Status != entity.WhatnotShowStatusCancelled && show.Status != entity.WhatnotShowStatusEnded {
-		endedAt := webhookEventTime(ev)
-		if err := s.WhatnotShowRepositorier.SetStatus(show.Id, entity.WhatnotShowStatusEnded, nil, &endedAt); err != nil {
-			return err
-		}
-		s.invalidateShowStreams(show.Id)
-		s.syncDiscordShowAsync(show.Id)
-	}
-
-	streams, err := s.WhatnotShowRepositorier.GetStreams(show.Id)
-	if err != nil {
+	endedAt := webhookEventTime(ev)
+	if err := s.StreamRepositorier.SetTimes(stream.Id, nil, &endedAt); err != nil {
 		return err
 	}
-	var firstErr error
-	for _, stream := range streams {
-		if err := s.EventStreamEnded(&EventStreamEndedRequest{StreamID: stream.Id}); err != nil {
-			fmt.Println(fmt.Sprintf("whatnot webhook: stream %d: event stream ended: %s", stream.Id, err.Error()))
-		}
-		if _, err := s.RunShowReconciliation(stream.Id, "webhook", false); err != nil && firstErr == nil {
-			firstErr = err
-		}
+	s.syncDiscordShowAsync(stream.Id) // EventStreamEnded does not move an already ended stream; the ended time changed
+	if err := s.EventStreamEnded(&EventStreamEndedRequest{StreamID: stream.Id}); err != nil {
+		fmt.Println(fmt.Sprintf("whatnot webhook: stream %d: event stream ended: %s", stream.Id, err.Error()))
 	}
-	return firstErr
+	_, err = s.RunShowReconciliation(stream.Id, "webhook", false)
+	return err
 }
 
-// onWhatnotShowCancelled marks the show cancelled; an unknown show gets its row first (the payload only carries the id).
+// onWhatnotShowCancelled marks a show that has not started as cancelled. A started or finished show keeps its status.
 func (s *Service) onWhatnotShowCancelled(ev *entity.WhatnotWebhookEvent, data json.RawMessage) error {
 	showId, err := webhookShowId(data)
 	if err != nil {
 		return err
 	}
-	show, err := s.ensureWhatnotShow(ev.ChannelId, showId)
-	if err != nil {
+	stream, err := s.boundStream(ev, showId)
+	if err != nil || stream == nil {
 		return err
 	}
-	if err := s.WhatnotShowRepositorier.SetStatus(show.Id, entity.WhatnotShowStatusCancelled, nil, nil); err != nil {
+	if stream.Status != entity.StreamStatusPlanned {
+		return nil
+	}
+	if err := s.SetStreamStatus(stream, entity.StreamStatusCancelled); err != nil {
 		return err
 	}
-	s.invalidateShowStreams(show.Id)
-	s.syncDiscordShowAsync(show.Id)
+	s.StreamCache.Delete(cache.IdToKey(stream.Id))
 	return nil
 }

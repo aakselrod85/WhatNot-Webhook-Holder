@@ -23,7 +23,7 @@ func (s *Service) UpdateChannel(r *UpdateChannelRequest) (*UpdateChannelResponse
 	channel.Name = r.Name
 	channel.DefaultHighBidTeam = r.DefaultHighBidTeam
 	channel.DefaultHighBidFloor = r.DefaultHighBidFloor
-	err = s.ChannelRepositorier.Update(channel)
+	err = s.ChannelRepositorier.UpdateSettings(channel.Id, channel.Name, channel.DefaultHighBidTeam, channel.DefaultHighBidFloor)
 	if err == nil {
 		response.Success = true
 	}

@@ -41,6 +41,7 @@ func (s *Service) UpdateBreak(r *UpdateBreakRequest) (*UpdateBreakResponse, erro
 		return response, err
 	}
 
+	renamed := oldBreak.Name != r.Name
 	oldBreak.Name = r.Name
 	oldBreak.StartDate = startDate
 	oldBreak.EndDate = endDate
@@ -48,6 +49,9 @@ func (s *Service) UpdateBreak(r *UpdateBreakRequest) (*UpdateBreakResponse, erro
 	oldBreak.GiveawayTeam = r.GiveawayTeam
 	oldBreak.HighBidFloor = r.HighBidFloor
 	err = s.BreakRepositorier.Update(oldBreak)
+	if err == nil && renamed {
+		err = s.BreakRepositorier.Rename(oldBreak.Id, r.Name)
+	}
 	if err == nil {
 		response.Success = true
 	}

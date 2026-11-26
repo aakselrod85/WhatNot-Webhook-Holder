@@ -102,20 +102,17 @@ func (s *Service) RunShowReconciliation(streamId int64, trigger string, dryRun b
 	if err != nil {
 		return nil, err
 	}
-	show, err := s.streamShow(streamId)
-	if err != nil {
-		return nil, err
-	}
-	if show == nil {
+	if stream.WhatnotShowId == nil {
 		return nil, fmt.Errorf("stream %d has no whatnot show", streamId)
 	}
+	whatnotShowId := *stream.WhatnotShowId
 
-	id, started, err := s.StartReconciliation(streamId, show.ShowId, trigger, time.Now().Add(-reconciliationRunningTTL))
+	id, started, err := s.StartReconciliation(streamId, whatnotShowId, trigger, time.Now().Add(-reconciliationRunningTTL))
 	if err != nil {
 		return nil, err
 	}
 	if !started {
-		return s.GetReconciliationByStream(streamId, show.ShowId)
+		return s.GetReconciliationByStream(streamId, whatnotShowId)
 	}
 
 	status, report, runErr := s.safeReconcile(id, stream, dryRun)
@@ -151,11 +148,7 @@ func (s *Service) RunShowReconciliation(streamId int64, trigger string, dryRun b
 		}
 	}
 	// Covers needs_manual and failed; the alert variant syncs the message first, then pings, under one lock.
-	if alert {
-		s.syncDiscordShowsOfStreamAsync(streamId, true)
-	} else {
-		s.SyncDiscordShowsOfStreamAsync(streamId)
-	}
+	s.syncDiscordShowAsyncAlert(streamId, alert)
 	row, err := s.GetReconciliation(id)
 	if err != nil {
 		return nil, err
@@ -204,7 +197,7 @@ func (s *Service) reconcile(id int64, stream *entity.Stream, dryRun bool) (strin
 	if err != nil {
 		return "", nil, err
 	}
-	sort.Slice(dbBreaks, func(a, b int) bool { return dbBreaks[a].Id < dbBreaks[b].Id })
+	sort.SliceStable(dbBreaks, func(a, b int) bool { return dbBreaks[a].Number < dbBreaks[b].Number })
 	eventsByBreak := map[int64][]*entity.Event{}
 	for _, b := range dbBreaks {
 		evs, err := s.EventRepositorier.GetAllByBreak(b.Id)
@@ -362,7 +355,9 @@ func (s *Service) reconcile(id int64, stream *entity.Stream, dryRun bool) (strin
 		}
 	}
 
-	sort.SliceStable(items, func(a, b int) bool { return parseOrderTime(items[a].CreatedAt).Before(parseOrderTime(items[b].CreatedAt)) })
+	sort.SliceStable(items, func(a, b int) bool {
+		return parseOrderTime(items[a].CreatedAt).Before(parseOrderTime(items[b].CreatedAt))
+	})
 	report.Giveaways.Items = items
 
 	// ---- decide ----

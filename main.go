@@ -44,6 +44,14 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// envInt reads a positive integer setting; the default is used when it is unset or invalid.
+func envInt(name string, def int) int {
+	if v, err := strconv.Atoi(os.Getenv(name)); err == nil && v > 0 {
+		return v
+	}
+	return def
+}
+
 func main() {
 	err := godotenv.Load(".env.local")
 	if err != nil {
@@ -64,11 +72,23 @@ func main() {
 	// Cap the pool: the managed tier allows ~22-25 connections (3 reserved for SUPERUSER roles;
 	// migrations/psql/a second instance need slots too). Beyond this cap, requests queue inside
 	// Go instead of failing at Postgres with "remaining connection slots are reserved...".
-	db.SetMaxOpenConns(15)
-	db.SetMaxIdleConns(5)
+	// Sizes: DB_MAX_OPEN_CONNS (default 7) here, MOBWEBAPP_DB_MAX_OPEN_CONNS (default 5) for the second pool; the server
+	// allows 22 connections across both apps.
+	db.SetMaxOpenConns(envInt("DB_MAX_OPEN_CONNS", 7))
+	db.SetMaxIdleConns(envInt("DB_MAX_IDLE_CONNS", 3))
 	db.SetConnMaxLifetime(30 * time.Minute)
 	// Unsafe: ignore result columns with no struct field, so migrations can be applied before the binary that maps them is deployed.
 	db = db.Unsafe()
+
+	// Second pool: mobwebapp's database holds channels, shows, breaks and spots (shared tables, see CLAUDE.md).
+	mobDB, err := sqlx.Connect("postgres", os.Getenv("MOBWEBAPP_DATABASE_URL"))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	mobDB.SetMaxOpenConns(envInt("MOBWEBAPP_DB_MAX_OPEN_CONNS", 5))
+	mobDB.SetMaxIdleConns(envInt("MOBWEBAPP_DB_MAX_IDLE_CONNS", 2))
+	mobDB.SetConnMaxLifetime(30 * time.Minute)
+	mobDB = mobDB.Unsafe()
 
 	service.InitFile()
 	driver, err := postgres.WithInstance(db.DB, &postgres.Config{})
@@ -87,10 +107,12 @@ func main() {
 		return
 	}
 
-	breakCache := go_cache.CreateCache[*entity.Break](10 * time.Hour)
-	streamCache := go_cache.CreateCache[*entity.Stream](10 * time.Hour)
-	streamShowCache := go_cache.CreateCache[*entity.WhatnotShow](10 * time.Hour)
-	channelCache := go_cache.CreateCache[*entity.Channel](10 * time.Hour)
+	// mobwebapp renames shows and breaks and changes show status directly in the database, so these caches are short.
+	// CreateCache(d) expires entries after d-5m (and a negative expiry would mean "never"), so 5m30s gives 30s.
+	cacheTTL := 5*time.Minute + 30*time.Second
+	breakCache := go_cache.CreateCache[*entity.Break](cacheTTL)
+	streamCache := go_cache.CreateCache[*entity.Stream](cacheTTL)
+	channelCache := go_cache.CreateCache[*entity.Channel](cacheTTL)
 	seriesPricesCache := go_cache.CreateCache[[]*entity.SeriesTeamTotal](10 * time.Hour)
 	seriesWithCountCache := go_cache.CreateCache[*entity.SeriesWithCount](10 * time.Hour)
 	cardsBoardSettingsCache := go_cache.CreateCache[*entity.WidgetCardsBoardSettings](10 * time.Hour)
@@ -107,10 +129,10 @@ func main() {
 	}
 
 	svc := &service.Service{
-		BreakRepositorier:                      &repository_sqlx.BreakRepository{DB: db},
-		StreamRepositorier:                     &repository_sqlx.StreamRepository{DB: db},
-		EventRepositorier:                      &repository_sqlx.EventRepository{DB: db},
-		ChannelRepositorier:                    &repository_sqlx.ChannelRepository{DB: db},
+		BreakRepositorier:                      &repository_sqlx.BreakRepository{DB: mobDB},
+		StreamRepositorier:                     &repository_sqlx.StreamRepository{DB: mobDB},
+		EventRepositorier:                      &repository_sqlx.EventRepository{DB: mobDB},
+		ChannelRepositorier:                    &repository_sqlx.ChannelRepository{DB: mobDB},
 		TGChatRepositorier:                     &repository_sqlx.TGChatRepository{DB: db},
 		BoxRepositorier:                        &repository_sqlx.BoxRepository{DB: db},
 		BoxTypeRepositorier:                    &repository_sqlx.BoxTypeRepository{DB: db},
@@ -136,12 +158,10 @@ func main() {
 		OverlayStateRepositorier:               &repository_sqlx.OverlayStateRepository{DB: db},
 		WhatnotWebhookEventRepositorier:        &repository_sqlx.WhatnotWebhookEventRepository{DB: db},
 		ShowReconciliationRepositorier:         &repository_sqlx.ShowReconciliationRepository{DB: db},
-		WhatnotShowRepositorier:                &repository_sqlx.WhatnotShowRepository{DB: db},
 		DiscordFeedChannelRepositorier:         &repository_sqlx.DiscordFeedChannelRepository{DB: db},
 		DiscordShowMessageRepositorier:         &repository_sqlx.DiscordShowMessageRepository{DB: db},
 		BreakCache:                             &breakCache,
 		StreamCache:                            &streamCache,
-		StreamShowCache:                        &streamShowCache,
 		ChannelCache:                           &channelCache,
 		SeriesPricesCache:                      &seriesPricesCache,
 		SeriesWithCountCache:                   &seriesWithCountCache,
@@ -173,14 +193,11 @@ func main() {
 
 	http.HandleFunc("/api/channel", routeBuilder.WrapRoute(apiO.GetChannel, api.HttpPost, true))
 	http.HandleFunc("/api/channels", routeBuilder.WrapRoute(apiO.GetChannels, api.HttpGet, true))
-	http.HandleFunc("/api/channel/add", routeBuilder.WrapRoute(apiO.AddChannel, api.HttpPost, true))
-	http.HandleFunc("/api/channel/delete", routeBuilder.WrapRoute(apiO.DeleteChannel, api.HttpPost, true))
 	http.HandleFunc("/api/channel/update", routeBuilder.WrapRoute(apiO.UpdateChannel, api.HttpPost, true))
 	http.HandleFunc("/api/channel/by_stream", routeBuilder.WrapRoute(apiO.GetChannelByStream, api.HttpPost, true))
 
 	http.HandleFunc("/api/channel/streams", routeBuilder.WrapRoute(apiO.GetChannelStreams, api.HttpPost, true))
 	http.HandleFunc("/api/stream", routeBuilder.WrapRoute(apiO.GetDay, api.HttpPost, true))
-	http.HandleFunc("/api/stream/add", routeBuilder.WrapRoute(apiO.AddStream, api.HttpPost, true))
 	http.HandleFunc("/api/stream/usernames", routeBuilder.WrapRoute(apiO.GetUsernames, api.HttpPost, true))
 	http.HandleFunc("/api/stream/delete", routeBuilder.WrapRoute(apiO.DeleteStream, api.HttpPost, true))
 
@@ -198,7 +215,6 @@ func main() {
 
 	http.HandleFunc("/api/stream/breaks", routeBuilder.WrapRoute(apiO.GetStreamBreaks, api.HttpPost, true))
 	http.HandleFunc("/api/break", routeBuilder.WrapRoute(apiO.GetBreak, api.HttpPost, true))
-	http.HandleFunc("/api/break/add", routeBuilder.WrapRoute(apiO.AddBreak, api.HttpPost, true))
 	http.HandleFunc("/api/break/delete", routeBuilder.WrapRoute(apiO.DeleteBreak, api.HttpPost, true))
 	http.HandleFunc("/api/break/update", routeBuilder.WrapRoute(apiO.UpdateBreak, api.HttpPost, true))
 	http.HandleFunc("/api/break/events", routeBuilder.WrapRoute(apiO.GetBreakEvents, api.HttpPost, true))

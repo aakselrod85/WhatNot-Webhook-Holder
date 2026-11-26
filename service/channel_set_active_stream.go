@@ -17,7 +17,7 @@ func (s *Service) SetActiveStream(r *SetActiveStreamRequest) (*SetActiveStreamRe
 		return nil, err
 	}
 	channel.ActiveStreamId = r.ActiveStreamId
-	err = s.ChannelRepositorier.Update(channel)
+	err = s.ChannelRepositorier.SetActiveStream(channel.Id, r.ActiveStreamId)
 	if err != nil {
 		return &SetActiveStreamResponse{}, err
 	}
